@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id               Int          @id @default(autoincrement())
+  slug             String       @unique
+  title            String
+  description      String?
+  rotation_mode    String       @default("SMOOTH_WEIGHTED") // SMOOTH_WEIGHTED, RANDOM_WEIGHTED, ROUND_ROBIN, GEO_TARGET
+  message_template String       @default("Halo {nama_cs}, saya tertarik dengan paket wisata Trip Banyuwangi dari {channel}!")
+  fallback_number  String?      @default("6281234567890")
+  redirect_mode    String       @default("INTERSTITIAL") // DIRECT_302, INTERSTITIAL
+  pixel_fb_id      String?
+  pixel_tiktok_id  String?
+  pixel_ga_id      String?
+  is_active        Boolean      @default(true)
+  sticky_session   Boolean      @default(false)
+  sticky_duration_hours Int     @default(24)
+  enable_geo_routing Boolean    @default(false)
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  cs_assignments   CampaignCS[]
+  click_logs       ClickLog[]
+}
+
+model CSAdmin {
+  id               Int          @id @default(autoincrement())
+  name             String
+  phone_number     String       // e.g. 6281234567890
+  email            String?
+  avatar_url       String?
+  is_active        Boolean      @default(true)
+  auto_schedule    Boolean      @default(false)
+  schedule_start   String?      @default("08:00") // HH:mm
+  schedule_end     String?      @default("17:00") // HH:mm
+  enable_daily_cap Boolean      @default(false)
+  daily_lead_cap   Int          @default(50)
+  today_lead_count Int          @default(0)
+  crm_admin_id     Int?         // Mapped to Admin ID in CRM
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  campaigns        CampaignCS[]
+  click_logs       ClickLog[]
+}
+
+model CampaignCS {
+  id             Int        @id @default(autoincrement())
+  campaign_id    Int
+  cs_id          Int
+  weight         Int        @default(10) // 1-100
+  is_active      Boolean    @default(true)
+  custom_message String?
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  campaign       Campaign   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  cs             CSAdmin    @relation(fields: [cs_id], references: [id], onDelete: Cascade)
+
+  @@unique([campaign_id, cs_id])
+}
+
+model ClickLog {
+  id           Int       @id @default(autoincrement())
+  campaign_id  Int
+  cs_id        Int?
+  ip_address   String?
+  user_agent   String?
+  device_type  String?   @default("mobile") // mobile, desktop, tablet
+  os           String?
+  browser      String?
+  country      String?   @default("Indonesia")
+  province     String?
+  city         String?
+  referrer     String?
+  utm_source   String?   // tiktok, instagram, facebook, google, etc.
+  utm_medium   String?   // cpc, bio, story, ads
+  utm_campaign String?
+  utm_content  String?
+  utm_term     String?
+  redirect_url String?
+  created_at   DateTime  @default(now())
+
+  campaign     Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  cs           CSAdmin?  @relation(fields: [cs_id], references: [id], onDelete: SetNull)
+
+  @@index([campaign_id, created_at])
+  @@index([cs_id, created_at])
+  @@index([created_at])
+  @@index([utm_source])
+}
+
+model SystemSetting {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
