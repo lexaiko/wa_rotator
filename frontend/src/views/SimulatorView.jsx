@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CSAvatar from '../components/CSAvatar.jsx';
+import { useModal } from '../context/ModalContext.jsx';
 import {
   FlaskConical,
   Play,
@@ -12,13 +13,20 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-export default function SimulatorView({ campaigns }) {
+export default function SimulatorView({ campaigns = [] }) {
+  const { showAlert, showToast } = useModal();
   const [selectedCampaignId, setSelectedCampaignId] = useState(campaigns[0]?.id || '');
   const [iterations, setIterations] = useState(100);
   const [mockCity, setMockCity] = useState('Surabaya');
   const [ignoreSchedule, setIgnoreSchedule] = useState(true);
   const [loading, setLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
+
+  useEffect(() => {
+    if (!selectedCampaignId && campaigns.length > 0) {
+      setSelectedCampaignId(campaigns[0].id);
+    }
+  }, [campaigns, selectedCampaignId]);
 
   const handleRunSimulation = async (e) => {
     e.preventDefault();
@@ -29,6 +37,7 @@ export default function SimulatorView({ campaigns }) {
       const res = await fetch('/api/simulation/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           campaign_id: selectedCampaignId,
           iterations,
@@ -40,8 +49,13 @@ export default function SimulatorView({ campaigns }) {
       const data = await res.json();
       if (data.success) {
         setSimulationResult(data.data);
+        showToast(`Simulasi ${iterations} klik pengunjung selesai dianalisis!`, 'success');
       } else {
-        alert(data.error || 'Gagal menjalankan simulasi');
+        showAlert({
+          title: 'Gagal Menjalankan Simulasi',
+          message: data.error || 'Terjadi kesalahan saat memproses simulasi rotasi link.',
+          type: 'error'
+        });
       }
     } catch (err) {
       console.error('Simulation error:', err);
@@ -181,7 +195,7 @@ export default function SimulatorView({ campaigns }) {
                 Distribusi Nyata Hasil Rotasi per CS
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Membandingkan bobot target yang disetel vs persentase lead yang diterima
+                Membandingkan bobot target yang disetel vs persentase klik yang diterima
               </p>
 
               <div className="space-y-4 pt-2">
@@ -242,7 +256,7 @@ export default function SimulatorView({ campaigns }) {
           {/* Sequence Step-by-step Log */}
           <div className="glass-panel p-5 sm:p-6 rounded-2xl">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
-              Urutan Distribusi 15 Lead Pertama:
+              Urutan Distribusi 15 Klik Pertama:
             </h3>
             <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-2 text-center text-xs">
               {simulationResult.sample_logs.map((log) => (
@@ -250,7 +264,7 @@ export default function SimulatorView({ campaigns }) {
                   key={log.iteration}
                   className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
                 >
-                  <div className="text-[10px] text-slate-500 font-mono">Lead #{log.iteration}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">Klik #{log.iteration}</div>
                   <div className="font-bold text-brand-600 dark:text-brand-400 truncate mt-0.5">{log.assigned_to}</div>
                 </div>
               ))}

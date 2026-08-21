@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import {
   Settings,
-  ShieldCheck,
-  Server,
   Zap,
   CheckCircle2,
   Code2,
-  ExternalLink,
   Save,
   Link,
-  BookOpen
+  ShieldCheck,
+  Cpu,
+  Smartphone
 } from 'lucide-react';
 
 export default function SettingsView() {
@@ -29,86 +28,98 @@ export default function SettingsView() {
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
           <Settings className="w-5 h-5 text-brand-500" />
-          Pengaturan Sistem & Integrasi CRM
+          Pengaturan Sistem WhatsApp Rotator
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Konfigurasi nomor darurat fallback, branding, panduan tag dinamis, dan jembatan integrasi ke CRM TripBwi
+          Konfigurasi nomor WhatsApp darurat, branding, panduan tag dinamis, dan format parameter URL iklan (UTM)
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: General Settings Form */}
-        <div className="glass-panel p-5 sm:p-6 rounded-2xl space-y-5">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Zap className="w-4 h-4 text-brand-500" />
-            Konfigurasi Default Rotator
-          </h3>
+        <div className="space-y-6">
+          <div className="glass-panel p-5 sm:p-6 rounded-2xl space-y-5">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Zap className="w-4 h-4 text-brand-500" />
+              Konfigurasi Default Rotator
+            </h3>
 
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Nomor WhatsApp Darurat / Fallback Utama
-              </label>
-              <input
-                type="text"
-                value={fallbackNumber}
-                onChange={(e) => setFallbackNumber(e.target.value)}
-                placeholder="6281234567890"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-mono"
-              />
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
-                Nomor ini akan digunakan jika seluruh CS sedang Offline atau di luar jam kerja operasional.
-              </span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Nama Brand / Perusahaan
-              </label>
-              <input
-                type="text"
-                value={brandName}
-                onChange={(e) => setBrandName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
-              />
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white font-bold text-xs shadow-brand-glow transition-all active:scale-95"
-              >
-                <Save className="w-4 h-4" />
-                <span>Simpan Pengaturan</span>
-              </button>
-              {savedSuccess && (
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 ml-3 inline-flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4" /> Tersimpan!
-                </span>
-              )}
-            </div>
-          </form>
-
-          {/* CRM Integration Card */}
-          <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-3">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Server className="w-4 h-4 text-brand-500" />
-              Status Bridge CRM (`trip-bwi-classifier`)
-            </h4>
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Endpoint CRM:</span>
-                <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">http://localhost:3002/api</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Greeting Rule Auto-Sync:</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Aktif
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Nomor WhatsApp Darurat / Fallback Utama
+                </label>
+                <div className="relative">
+                  <Smartphone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={fallbackNumber}
+                    onChange={(e) => setFallbackNumber(e.target.value)}
+                    placeholder="6281234567890"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-mono font-semibold"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                  Nomor ini otomatis digunakan jika seluruh CS sedang Offline, di luar shift kerja, atau kuota hariannya penuh.
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1 leading-relaxed">
-                Rotator otomatis menyematkan keyword referensi (misal: <code>[Ref: TikTok]</code>) agar AI Gemini di CRM langsung mengenali sumber iklan saat tamu pertama kali mengirim pesan WhatsApp.
-              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Nama Brand / Perusahaan
+                </label>
+                <input
+                  type="text"
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-semibold"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white font-bold text-xs shadow-brand-glow transition-all active:scale-95 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Pengaturan</span>
+                </button>
+                {savedSuccess && (
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> Pengaturan tersimpan!
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* Engine Specs Box */}
+          <div className="glass-panel p-5 sm:p-6 rounded-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-brand-500" />
+              Spesifikasi WhatsApp Rotator Engine
+            </h3>
+            
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Algoritma Rotasi:</span>
+                <span className="font-bold text-brand-600 dark:text-brand-400">Nginx Smooth Weighted</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Kecepatan Pengalihan:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">&lt; 5ms (Instan 302)</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Dukungan Tracking Pixel:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Meta Pixel, TikTok, GA4</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Anti-Duplikasi CS (Sticky Session):</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Aktif (Cookie & IP Cache)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -122,17 +133,16 @@ export default function SettingsView() {
               Daftar Tag Pesan Dinamis
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Gunakan placeholder berikut dalam template pesan WhatsApp kampanye:
+              Gunakan placeholder berikut dalam template pesan WhatsApp kampanye untuk personalisasi otomatis:
             </p>
 
             <div className="space-y-2 text-xs">
               {[
-                { tag: '{nama_cs}', desc: 'Nama CS yang terpilih menerima lead' },
-                { tag: '{greeting}', desc: 'Sapaan ramah sesuai jam lokal (Pagi, Siang, Sore, Malam)' },
-                { tag: '{kota}', desc: 'Kota asal calon tamu berdasarkan deteksi IP' },
-                { tag: '{channel}', desc: 'Sumber traffic (TikTok, Instagram, Facebook, Google)' },
-                { tag: '{campaign}', desc: 'Judul paket tour / nama kampanye' },
-                { tag: '{crm_keyword}', desc: 'Kode pemicu otomatis GreetingRule di CRM TripBwi' }
+                { tag: '{nama_cs}', desc: 'Nama CS yang terpilih menerima klik pengunjung' },
+                { tag: '{greeting}', desc: 'Sapaan ramah otomatis sesuai jam lokal (Pagi, Siang, Sore, Malam)' },
+                { tag: '{kota}', desc: 'Kota asal calon tamu berdasarkan deteksi geolokasi IP' },
+                { tag: '{channel}', desc: 'Sumber traffic pengiklan (TikTok, Instagram, Facebook, Google)' },
+                { tag: '{campaign}', desc: 'Judul paket tour atau nama kampanye iklan' }
               ].map((item) => (
                 <div
                   key={item.tag}
@@ -149,16 +159,25 @@ export default function SettingsView() {
           <div className="glass-panel p-5 sm:p-6 rounded-2xl space-y-3">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Link className="w-4 h-4 text-brand-500" />
-              Contoh Format Link Iklan (UTM)
+              Contoh Format Link Iklan (UTM Parameter)
             </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Semua parameter UTM pada link iklan akan terlacak otomatis di menu Analitik & Log:
+            </p>
             <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-brand-600 dark:text-brand-300 break-all select-all font-semibold">
-                https://wa.tripbanyuwangi.com/kawah-ijen?utm_source=tiktok&utm_campaign=promo-liburan
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-brand-600 dark:text-brand-300 break-all select-all font-semibold">
+                https://wa.tripbanyuwangi.com/kawah-ijen?utm_source=ig&utm_medium=bio
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-brand-600 dark:text-brand-300 break-all select-all font-semibold">
-                https://wa.tripbanyuwangi.com/ig-bio?utm_source=instagram&utm_medium=bio
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-brand-600 dark:text-brand-300 break-all select-all font-semibold">
+                https://wa.tripbanyuwangi.com/kawah-ijen?utm_source=tt&utm_medium=ads&utm_campaign=promo
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-brand-600 dark:text-brand-300 break-all select-all font-semibold">
+                https://wa.tripbanyuwangi.com/paket-baluran?utm_source=fb&utm_medium=cpc
               </div>
             </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              💡 Mendukung singkatan: <code>ig</code> / <code>instagram</code>, <code>tt</code> / <code>tiktok</code>, <code>fb</code> / <code>facebook</code>, <code>gads</code> / <code>google</code>.
+            </p>
           </div>
         </div>
       </div>

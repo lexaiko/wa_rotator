@@ -1,9 +1,26 @@
 import prisma from './config/prisma.js';
+import bcrypt from 'bcryptjs';
 
 async function main() {
   console.log('Seeding initial data for TripBanyuwangi WA Rotator...');
 
-  // 1. Clear old data
+  // 0. Ensure Admin User exists
+  const existingAdmin = await prisma.adminUser.findUnique({ where: { username: 'admin' } });
+  if (!existingAdmin) {
+    const passwordHash = await bcrypt.hash('admin123', 10);
+    await prisma.adminUser.create({
+      data: {
+        username: 'admin',
+        password_hash: passwordHash,
+        name: 'Super Admin TripBwi',
+        email: 'admin@tripbanyuwangi.com',
+        role: 'SUPERADMIN'
+      }
+    });
+    console.log('Created Default Super Admin: username="admin", password="admin123"');
+  }
+
+  // 1. Clear old rotator data
   await prisma.clickLog.deleteMany({});
   await prisma.campaignCS.deleteMany({});
   await prisma.campaign.deleteMany({});

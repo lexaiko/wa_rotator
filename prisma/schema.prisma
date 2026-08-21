@@ -104,3 +104,16 @@ model SystemSetting {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 }
+
+model AdminUser {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  password_hash String
+  name          String
+  role          String    @default("SUPERADMIN") // SUPERADMIN, ADMIN
+  email         String?
+  avatar_url    String?
+  last_login_at DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+}

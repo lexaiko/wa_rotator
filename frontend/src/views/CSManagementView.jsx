@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import CSAvatar from '../components/CSAvatar.jsx';
+import { useModal } from '../context/ModalContext.jsx';
 import {
   Users,
   Plus,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function CSManagementView({ csList: propCS = [], onRefresh }) {
+  const { showConfirm, showAlert, showToast } = useModal();
   const [csList, setCSList] = useState(propCS);
   const [loading, setLoading] = useState(propCS.length === 0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,7 +50,9 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
 
   const fetchCS = async () => {
     try {
-      const res = await fetch('/api/cs');
+      const res = await fetch('/api/cs', {
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
         setCSList(data.data);
@@ -62,10 +66,14 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
 
   const handleToggle = async (id) => {
     try {
-      const res = await fetch(`/api/cs/${id}/toggle`, { method: 'PATCH' });
+      const res = await fetch(`/api/cs/${id}/toggle`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
         setCSList(csList.map(cs => cs.id === id ? { ...cs, is_active: data.data.is_active } : cs));
+        showToast(`Status CS berhasil diubah menjadi ${data.data.is_active ? 'Aktif' : 'Nonaktif'}.`, 'info');
         onRefresh();
       }
     } catch (err) {
@@ -73,32 +81,54 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
     }
   };
 
-  const handleResetCounter = async (id) => {
-    if (!window.confirm('Reset jumlah lead CS ini hari ini ke 0?')) return;
-    try {
-      const res = await fetch(`/api/cs/${id}/reset-counter`, { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setCSList(csList.map(cs => cs.id === id ? { ...cs, today_lead_count: 0 } : cs));
-        onRefresh();
+  const handleResetCounter = (id) => {
+    showConfirm({
+      title: 'Reset Hitungan Klik CS?',
+      message: 'Jumlah klik yang diterima CS ini hari ini akan direset kembali ke angka 0.',
+      confirmText: 'Ya, Reset',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/cs/${id}/reset-counter`, {
+            method: 'POST',
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) {
+            setCSList(csList.map(cs => cs.id === id ? { ...cs, today_lead_count: 0 } : cs));
+            showToast('Hitungan klik CS berhasil direset ke 0.', 'success');
+            onRefresh();
+          }
+        } catch (err) {
+          console.error('Reset counter error:', err);
+        }
       }
-    } catch (err) {
-      console.error('Reset counter error:', err);
-    }
+    });
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Hapus akun CS ini dari daftar rotator?')) return;
-    try {
-      const res = await fetch(`/api/cs/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setCSList(csList.filter(cs => cs.id !== id));
-        onRefresh();
+  const handleDelete = (id) => {
+    showConfirm({
+      title: 'Hapus CS dari Rotator?',
+      message: 'Apakah Anda yakin ingin menghapus akun CS ini dari daftar rotator? Data pembobotan pada kampanye terkait akan disesuaikan.',
+      confirmText: 'Hapus CS',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/cs/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) {
+            setCSList(csList.filter(cs => cs.id !== id));
+            showToast('Akun CS berhasil dihapus.', 'success');
+            onRefresh();
+          }
+        } catch (err) {
+          console.error('Delete error:', err);
+        }
       }
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
+    });
   };
 
   const openCreateModal = () => {
@@ -146,6 +176,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -153,9 +184,14 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
       if (data.success) {
         setIsModalOpen(false);
         fetchCS();
+        showToast(editingCS ? 'Perubahan data CS berhasil disimpan!' : 'CS baru berhasil ditambahkan!', 'success');
         onRefresh();
       } else {
-        alert(data.error || 'Gagal menyimpan CS');
+        showAlert({
+          title: 'Gagal Menyimpan Data CS',
+          message: data.error || 'Terjadi kesalahan saat memproses data CS.',
+          type: 'error'
+        });
       }
     } catch (err) {
       console.error('Submit error:', err);
@@ -172,7 +208,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
             Manajemen Tim CS, Jam Kerja & Kuota
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Atur status online, shift jam kerja otomatis, dan pembatasan maksimal lead harian per CS
+            Atur status online, shift jam kerja otomatis, dan pembatasan maksimal klik harian per CS
           </p>
         </div>
 
@@ -259,7 +295,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
                     </span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {cs.enable_daily_cap ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{cs.daily_lead_cap} lead/hari</span>
+                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{cs.daily_lead_cap} klik/hari</span>
                       ) : (
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium">Tanpa Batas</span>
                       )}
@@ -281,7 +317,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
                 {/* Today's Lead Count Progress Bar */}
                 <div className="space-y-1.5 mb-4">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">Lead Diterima Hari Ini:</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Klik Diterima Hari Ini:</span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       <span className="text-brand-600 dark:text-brand-400 font-mono text-sm">{current}</span>
                       {cs.enable_daily_cap ? ` / ${cap}` : ''}
@@ -344,9 +380,9 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
       {/* Modal Create/Edit CS (Full-screen Portal to document.body) */}
       {isModalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] w-screen h-screen bg-black/75 dark:bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-            <div className="bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="fixed inset-0 z-[99990] w-screen h-screen bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+            <div className="bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Users className="w-5 h-5 text-brand-500" />
                   {editingCS ? 'Edit Data CS' : 'Tambah CS Baru'}
@@ -359,7 +395,8 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     Nama CS / Admin *
@@ -432,7 +469,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
                     <div>
-                      <div className="text-xs font-bold text-slate-800 dark:text-white">Batasi Kuota Lead Harian (Daily Cap)</div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-white">Batasi Kuota Klik Harian (Daily Cap)</div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400">Otomatis istirahat jika mencapai limit harian</div>
                     </div>
                     <input
@@ -445,7 +482,7 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
 
                   {formData.enable_daily_cap && (
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                      <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">Maksimal Lead / Hari</label>
+                      <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">Maksimal Klik / Hari</label>
                       <input
                         type="number"
                         min="1"
@@ -456,18 +493,20 @@ export default function CSManagementView({ csList: propCS = [], onRefresh }) {
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+                {/* Modal Footer Buttons (Sticky & Fixed at Bottom) */}
+                <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0B0F19]/90 backdrop-blur-md flex items-center justify-end gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors"
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 text-white text-xs font-bold shadow-brand-glow transition-all active:scale-95"
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 text-white text-xs font-bold shadow-brand-glow transition-all active:scale-95 cursor-pointer"
                   >
                     {editingCS ? 'Simpan Perubahan' : 'Tambah CS'}
                   </button>

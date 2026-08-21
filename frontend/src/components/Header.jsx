@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Sun, Moon, Menu } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Menu, LogOut, ShieldCheck } from 'lucide-react';
 
 export default function Header({
   title,
@@ -8,7 +8,9 @@ export default function Header({
   isLoading,
   theme,
   onToggleTheme,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  user,
+  onLogout
 }) {
   return (
     <header className="h-16 md:h-20 bg-white/90 dark:bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-200 dark:border-white/10 px-4 sm:px-8 flex items-center justify-between shrink-0 sticky top-0 z-30 transition-colors">
@@ -60,17 +62,31 @@ export default function Header({
           <span className="hidden sm:inline">Refresh</span>
         </button>
 
-        {/* User Badge */}
-        <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-200 dark:border-slate-800">
+        {/* User Badge & Profile */}
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-slate-200 dark:border-slate-800">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-500 font-bold text-xs">
-            TB
+            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'TB'}
           </div>
           <div className="text-left hidden lg:block">
-            <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Admin TripBwi</div>
+            <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+              {user?.name || 'Super Admin'}
+            </div>
             <div className="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Super Admin
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              {user?.role || 'Super Admin'}
             </div>
           </div>
+
+          {/* Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Keluar / Logout"
+              className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 text-slate-500 hover:text-rose-500 border border-slate-200 dark:border-slate-700 hover:border-rose-500/30 transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </header>
