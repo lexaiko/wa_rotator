@@ -56,7 +56,10 @@ desktop.ini
 *.sln
 *.sw?
 
-# Temporary / Scratch Files
+# Temporary / Scratch & Test Files
 tmp/
 temp/
 scratch/
+src/test_features.js
+*test*.js
+

@@ -5,12 +5,26 @@ import DashboardView from './views/DashboardView.jsx';
 import CampaignsView from './views/CampaignsView.jsx';
 import CSManagementView from './views/CSManagementView.jsx';
 import AnalyticsView from './views/AnalyticsView.jsx';
+import BackupRestoreView from './views/BackupRestoreView.jsx';
 import SimulatorView from './views/SimulatorView.jsx';
 import SettingsView from './views/SettingsView.jsx';
+import LoginView from './views/LoginView.jsx';
 
 export default function App() {
-  const VALID_TABS = ['dashboard', 'campaigns', 'cs', 'analytics', 'simulator', 'settings'];
+  const VALID_TABS = ['dashboard', 'campaigns', 'cs', 'analytics', 'backup', 'simulator', 'settings'];
 
+  // Auth State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tb_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // Tab State
   const [currentTab, setCurrentTabState] = useState(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash && VALID_TABS.includes(hash)) {
@@ -38,8 +52,31 @@ export default function App() {
     return localStorage.getItem('tb_theme') || 'dark';
   });
 
+  // Verify Session on Load via httpOnly Cookie
   useEffect(() => {
-    fetchGlobalData();
+    const verifySession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem('tb_auth_user', JSON.stringify(data.user));
+          fetchGlobalData();
+        } else {
+          setCurrentUser(null);
+          localStorage.removeItem('tb_auth_user');
+        }
+      } catch (err) {
+        console.error('Session verify failed:', err);
+        setCurrentUser(null);
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+
+    verifySession();
 
     // Listen to browser Back/Forward buttons and Hash changes
     const handleHashChange = () => {
@@ -70,18 +107,37 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  const handleLoginSuccess = (token, user) => {
+    setCurrentUser(user);
+    localStorage.setItem('tb_auth_user', JSON.stringify(user));
+    fetchGlobalData();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (e) {
+      // ignore
+    }
+    setCurrentUser(null);
+    localStorage.removeItem('tb_auth_user');
+  };
+
   const fetchGlobalData = async () => {
     setIsLoading(true);
     try {
       const [statsRes, campsRes, csRes] = await Promise.all([
-        fetch('/api/analytics/summary').then(r => r.json()),
-        fetch('/api/campaigns').then(r => r.json()),
-        fetch('/api/cs').then(r => r.json())
+        fetch('/api/analytics/summary', { credentials: 'include' }).then(r => r.json()),
+        fetch('/api/campaigns', { credentials: 'include' }).then(r => r.json()),
+        fetch('/api/cs', { credentials: 'include' }).then(r => r.json())
       ]);
 
-      if (statsRes.success) setStats(statsRes.data);
-      if (campsRes.success) setCampaigns(campsRes.data);
-      if (csRes.success) setCSList(csRes.data);
+      if (statsRes && statsRes.success) setStats(statsRes.data);
+      if (campsRes && campsRes.success) setCampaigns(campsRes.data);
+      if (csRes && csRes.success) setCSList(csRes.data);
     } catch (err) {
       console.error('Error fetching global rotator data:', err);
     } finally {
@@ -99,12 +155,17 @@ export default function App() {
       case 'cs':
         return {
           title: 'Tim CS, Pembobotan & Jam Kerja',
-          subtitle: 'Atur rasio bobot pembagian lead, limit harian, dan shift kerja otomatis'
+          subtitle: 'Atur rasio bobot pembagian klik, limit harian, dan shift kerja otomatis'
         };
       case 'analytics':
         return {
           title: 'Analitik & Log Klik Detail',
           subtitle: 'Laporan lengkap pengunjung, asal kota, perangkat, dan performa tim CS'
+        };
+      case 'backup':
+        return {
+          title: 'Backup & Pemulihan Data',
+          subtitle: 'Ekspor snapshot data dan impor restore database untuk proteksi data'
         };
       case 'simulator':
         return {
@@ -113,8 +174,8 @@ export default function App() {
         };
       case 'settings':
         return {
-          title: 'Pengaturan & Integrasi CRM',
-          subtitle: 'Konfigurasi fallback darurat, cheatsheet template, dan sinkronisasi CRM'
+          title: 'Pengaturan Rotator',
+          subtitle: 'Konfigurasi nomor darurat, nama brand, dan panduan link rotator WhatsApp'
         };
       case 'dashboard':
       default:
@@ -124,6 +185,23 @@ export default function App() {
         };
     }
   };
+
+  // Loading Screen while verifying session
+  if (isAuthChecking) {
+    return (
+      <div className="h-screen w-screen bg-[#070B14] flex items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Memuat Sesi...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // If not logged in, render Login View
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
 
   const headerInfo = getHeaderInfo();
 
@@ -136,6 +214,7 @@ export default function App() {
         stats={stats}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -144,18 +223,19 @@ export default function App() {
         <Header
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
-          onRefresh={fetchGlobalData}
+          onRefresh={() => fetchGlobalData()}
           isLoading={isLoading}
           theme={theme}
           onToggleTheme={toggleTheme}
           onToggleMobileMenu={() => setMobileMenuOpen(prev => !prev)}
+          user={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* Scrollable View Content */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {currentTab === 'dashboard' && (
             <DashboardView
-              stats={stats}
               onNavigateTab={(tab) => setCurrentTab(tab)}
             />
           )}
@@ -164,14 +244,14 @@ export default function App() {
             <CampaignsView
               campaigns={campaigns}
               csList={csList}
-              onRefresh={fetchGlobalData}
+              onRefresh={() => fetchGlobalData()}
             />
           )}
 
           {currentTab === 'cs' && (
             <CSManagementView
               csList={csList}
-              onRefresh={fetchGlobalData}
+              onRefresh={() => fetchGlobalData()}
             />
           )}
 
@@ -179,6 +259,12 @@ export default function App() {
             <AnalyticsView
               campaigns={campaigns}
               csList={csList}
+            />
+          )}
+
+          {currentTab === 'backup' && (
+            <BackupRestoreView
+              onRefreshGlobalData={() => fetchGlobalData()}
             />
           )}
 

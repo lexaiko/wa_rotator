@@ -6,9 +6,11 @@ import {
   BarChart3,
   FlaskConical,
   Settings,
+  Database,
   ExternalLink,
   Zap,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -16,15 +18,17 @@ export default function Sidebar({
   setCurrentTab,
   stats,
   mobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  onLogout
 }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'campaigns', label: 'Kampanye & Link', icon: Megaphone, badge: stats?.activeCampaigns || null },
     { id: 'cs', label: 'Tim CS & Bobot', icon: Users, badge: `${stats?.activeCS || 0} Aktif` },
     { id: 'analytics', label: 'Analitik & Log', icon: BarChart3, badge: null },
+    { id: 'backup', label: 'Backup & Restore', icon: Database, badge: 'Aman' },
     { id: 'simulator', label: 'Live Simulator', icon: FlaskConical, badge: 'Test' },
-    { id: 'settings', label: 'Pengaturan & CRM', icon: Settings, badge: null },
+    { id: 'settings', label: 'Pengaturan Rotator', icon: Settings, badge: null },
   ];
 
   return (
@@ -108,15 +112,18 @@ export default function Sidebar({
           </nav>
         </div>
 
-        {/* System Status Footer */}
-        <div className="p-4 m-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Rotator Engine Online</span>
+        {/* System Status Footer & Logout */}
+        <div className="p-4 m-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Rotator Engine</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold font-mono">
+              &lt; 5ms
+            </span>
           </div>
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-            Latency: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">&lt; 5ms</span> | Cache Aktif
-          </p>
+
           <a
             href="/r/kawah-ijen"
             target="_blank"
@@ -126,6 +133,16 @@ export default function Sidebar({
             <span>Coba Redirect Link</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Keluar Akun</span>
+            </button>
+          )}
         </div>
       </aside>
     </>

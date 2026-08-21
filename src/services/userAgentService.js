@@ -34,16 +34,18 @@ export class UserAgentService {
    */
   static detectChannel(req) {
     const query = req.query || {};
-    const utmSource = (query.utm_source || '').toLowerCase();
+    const utmSource = (query.utm_source || '').toLowerCase().trim();
     const referer = (req.headers['referer'] || '').toLowerCase();
 
     if (utmSource) {
-      if (utmSource.includes('tiktok')) return 'TikTok';
-      if (utmSource.includes('ig') || utmSource.includes('instagram')) return 'Instagram';
-      if (utmSource.includes('fb') || utmSource.includes('facebook') || utmSource.includes('meta')) return 'Facebook';
-      if (utmSource.includes('google')) return 'Google';
-      if (utmSource.includes('youtube')) return 'YouTube';
-      return utmSource.toUpperCase();
+      if (utmSource === 'ig' || utmSource.includes('instagram') || utmSource.includes('insta')) return 'Instagram';
+      if (utmSource === 'tt' || utmSource.includes('tiktok')) return 'TikTok';
+      if (utmSource === 'fb' || utmSource.includes('facebook') || utmSource.includes('meta')) return 'Facebook';
+      if (utmSource === 'yt' || utmSource.includes('youtube')) return 'YouTube';
+      if (utmSource === 'gads' || utmSource.includes('google')) return 'Google';
+      if (utmSource === 'wa' || utmSource.includes('whatsapp')) return 'WhatsApp';
+      if (utmSource === 'web' || utmSource.includes('website') || utmSource === 'lp') return 'Website';
+      return utmSource.charAt(0).toUpperCase() + utmSource.slice(1);
     }
 
     if (referer) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import CSAvatar from '../components/CSAvatar.jsx';
+import { useModal } from '../context/ModalContext.jsx';
 import {
   Megaphone,
   Plus,
@@ -17,10 +18,15 @@ import {
   HelpCircle,
   Eye,
   ShieldCheck,
+  Globe,
+  Scale,
+  CheckSquare,
+  Square,
   X
 } from 'lucide-react';
 
 export default function CampaignsView({ campaigns: propCampaigns = [], csList, onRefresh }) {
+  const { showConfirm, showAlert, showToast } = useModal();
   const [campaigns, setCampaigns] = useState(propCampaigns);
   const [loading, setLoading] = useState(propCampaigns.length === 0);
   const [copiedSlug, setCopiedSlug] = useState(null);
@@ -56,7 +62,9 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
 
   const fetchCampaigns = async () => {
     try {
-      const res = await fetch('/api/campaigns');
+      const res = await fetch('/api/campaigns', {
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
         setCampaigns(data.data);
@@ -73,15 +81,20 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
     const url = `${origin}/${slug}`;
     navigator.clipboard.writeText(url);
     setCopiedSlug(slug);
+    showToast(`Link /${slug} berhasil disalin ke clipboard!`, 'success', 2500);
     setTimeout(() => setCopiedSlug(null), 2000);
   };
 
   const handleToggle = async (id) => {
     try {
-      const res = await fetch(`/api/campaigns/${id}/toggle`, { method: 'PATCH' });
+      const res = await fetch(`/api/campaigns/${id}/toggle`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
         setCampaigns(campaigns.map(c => c.id === id ? { ...c, is_active: data.data.is_active } : c));
+        showToast(`Kampanye berhasil diubah menjadi ${data.data.is_active ? 'Aktif' : 'Nonaktif'}.`, 'info');
         onRefresh();
       }
     } catch (err) {
@@ -89,18 +102,29 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Apakah kamu yakin ingin menghapus kampanye ini?')) return;
-    try {
-      const res = await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setCampaigns(campaigns.filter(c => c.id !== id));
-        onRefresh();
+  const handleDelete = (id) => {
+    showConfirm({
+      title: 'Hapus Kampanye Rotator?',
+      message: 'Apakah Anda yakin ingin menghapus kampanye ini? Link tidak akan dapat diakses lagi oleh pengunjung.',
+      confirmText: 'Hapus Kampanye',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/campaigns/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) {
+            setCampaigns(campaigns.filter(c => c.id !== id));
+            showToast('Kampanye berhasil dihapus.', 'success');
+            onRefresh();
+          }
+        } catch (err) {
+          console.error('Delete error:', err);
+        }
       }
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
+    });
   };
 
   const openCreateModal = () => {
@@ -172,6 +196,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
@@ -179,9 +204,14 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       if (data.success) {
         setIsModalOpen(false);
         fetchCampaigns();
+        showToast(editingCampaign ? 'Perubahan kampanye berhasil disimpan!' : 'Kampanye baru berhasil dibuat!', 'success');
         onRefresh();
       } else {
-        alert(data.error || 'Gagal menyimpan kampanye');
+        showAlert({
+          title: 'Gagal Menyimpan Kampanye',
+          message: data.error || 'Terjadi kesalahan saat memproses data kampanye.',
+          type: 'error'
+        });
       }
     } catch (err) {
       console.error('Save error:', err);
@@ -205,7 +235,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
             Manajemen Kampanye & Smart Link
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Buat link khusus per iklan (TikTok Ads, Meta, IG) untuk merotasi leads ke tim CS secara otomatis
+            Buat link khusus per iklan (TikTok Ads, Meta, IG) untuk merotasi klik pengunjung ke tim CS secara otomatis
           </p>
         </div>
 
@@ -264,76 +294,79 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                     {camp.is_active ? (
                       <span className="text-emerald-500 font-bold flex items-center gap-1">
                         <ToggleRight className="w-6 h-6 text-emerald-500" />
-                        Aktif
                       </span>
                     ) : (
                       <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1">
                         <ToggleLeft className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                        Off
                       </span>
                     )}
                   </button>
                 </div>
 
-                {/* Campaign Title & Slug */}
+                {/* Title & Description */}
                 <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 leading-snug">{camp.title}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
-                  {camp.description || 'Tidak ada catatan deskripsi.'}
-                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">{camp.description || 'Tidak ada deskripsi'}</p>
 
-                {/* Smart Link Box (Direct Root) */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between mb-4">
-                  <div className="text-xs font-mono text-brand-600 dark:text-brand-300 truncate mr-2 font-semibold">
-                    /{camp.slug}
+                {/* Direct Link Box & Copy */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 mb-4 group">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="w-4 h-4 text-brand-500 shrink-0" />
+                    <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                      /{camp.slug}
+                    </span>
                   </div>
+
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleCopyLink(camp.slug)}
+                      className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700"
                       title="Salin Link"
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
-                      {copiedSlug === camp.slug ? (
-                        <Check className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
+                      {copiedSlug === camp.slug ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                     <a
-                      href={`/${camp.slug}`}
+                      href={`/r/${camp.slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      title="Buka Link Langsung"
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-brand-500 transition-colors"
+                      className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700"
+                      title="Buka Link Pengalihan"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>
 
-                {/* Stats Pills */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Total Klik</div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-0.5">
-                      {camp._count?.click_logs || 0}
-                    </div>
+                {/* CS Assigned List in Campaign Card */}
+                <div className="space-y-2 mb-4">
+                  <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    CS Bertugas ({camp.cs_assignments?.filter(ca => ca.is_active)?.length || 0})
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">CS Ditugaskan</div>
-                    <div className="text-sm font-bold text-brand-600 dark:text-brand-400 font-mono mt-0.5">
-                      {camp.cs_assignments?.filter(ca => ca.is_active).length || 0} CS
-                    </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {camp.cs_assignments?.map((ca) => (
+                      <span
+                        key={ca.cs_id}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 ${
+                          ca.is_active
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                            : 'bg-slate-100/50 dark:bg-slate-900/50 text-slate-400 border-transparent line-through'
+                        }`}
+                      >
+                        <CSAvatar name={ca.cs?.name || 'CS'} size="xs" />
+                        <span>{ca.cs?.name}</span>
+                        <span className="text-[10px] text-brand-600 dark:text-brand-400 font-bold font-mono">({ca.weight}%)</span>
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-100 dark:border-white/10 flex items-center justify-between">
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {camp.redirect_mode === 'DIRECT_302' ? 'Pengalihan Instan' : 'Tracking Interstitial'}
+              {/* Card Footer: Quick Actions */}
+              <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {camp.redirect_mode === 'DIRECT_302' ? '⚡ Instan 302' : '🎯 Tracking Pixel'}
                 </span>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditModal(camp)}
                     className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-brand-500 transition-colors"
@@ -355,13 +388,13 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
         )}
       </div>
 
-      {/* Modal Create/Edit Campaign (Full-screen Portal to document.body) */}
+      {/* Modal Buat / Edit Kampanye */}
       {isModalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] w-screen h-screen bg-black/75 dark:bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-            <div className="bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-[99990] w-screen h-screen bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+            <div className="bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
               {/* Modal Header */}
-              <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+              <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Megaphone className="w-5 h-5 text-brand-500" />
                   {editingCampaign ? 'Edit Kampanye' : 'Buat Kampanye Baru'}
@@ -374,10 +407,11 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <form onSubmit={handleFormSubmit} className="p-5 sm:p-6 space-y-5 overflow-y-auto">
-                {/* Row 1: Nama Kampanye & Custom Slug / URL */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Form Container */}
+              <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                {/* Scrollable Body */}
+                <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Nama Kampanye *
@@ -401,17 +435,17 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      URL Slug Link *
+                      Slug URL Link (/slug) *
                     </label>
-                    <div className="flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-xs text-slate-400">
-                      <span className="font-mono text-brand-500 font-bold">/</span>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 font-bold">/</span>
                       <input
                         type="text"
                         required
                         value={formData.slug}
-                        onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                        placeholder="baluran-safari"
-                        className="w-full bg-transparent py-2.5 px-1 text-slate-900 dark:text-white focus:outline-none font-mono text-xs"
+                        onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                        placeholder="promo-baluran"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-7 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-mono font-bold"
                       />
                     </div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
@@ -439,7 +473,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                   {/* 1. Metode Distribusi */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Metode Distribusi Lead
+                      Metode Distribusi Klik
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       {[
@@ -553,72 +587,193 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                   </div>
                 </div>
 
-                {/* CS Assignment & Weights */}
+                {/* CS Assignment & Weights (Enhanced UX) */}
                 <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center justify-between">
-                    <span>Pembagian Beban CS untuk Kampanye Ini:</span>
-                    <span className="text-slate-500 dark:text-slate-400 font-normal">Pilih CS yang aktif menerima lead</span>
-                  </div>
+                  {(() => {
+                    const CS_PALETTE = ['#FF5E14', '#3B82F6', '#10B981', '#EC4899', '#8B5CF6', '#F59E0B', '#06B6D4', '#64748B'];
+                    const activeList = formData.cs_assignments.filter(ca => ca.is_active);
+                    const totalWeight = activeList.reduce((sum, ca) => sum + (Number(ca.weight) || 0), 0);
+                    const isAllSelected = formData.cs_assignments.length > 0 && formData.cs_assignments.every(ca => ca.is_active);
 
-                  <div className="space-y-3 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                    {formData.cs_assignments.map((ca, idx) => (
-                      <div key={ca.cs_id} className="flex items-center justify-between gap-4">
-                        <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800 dark:text-slate-200">
-                          <input
-                            type="checkbox"
-                            checked={ca.is_active}
-                            onChange={(e) => {
-                              const updated = [...formData.cs_assignments];
-                              updated[idx].is_active = e.target.checked;
-                              setFormData({ ...formData, cs_assignments: updated });
-                            }}
-                            className="w-4 h-4 rounded text-brand-500 focus:ring-brand-500 accent-brand-500"
-                          />
-                          <CSAvatar name={ca.cs_name} size="xs" />
-                          <span>{ca.cs_name}</span>
-                        </label>
+                    const handleAutoBalance = () => {
+                      if (activeList.length === 0) return;
+                      const count = activeList.length;
+                      const base = Math.floor(100 / count);
+                      const remainder = 100 % count;
+                      let actIdx = 0;
+                      const updated = formData.cs_assignments.map(ca => {
+                        if (!ca.is_active) return ca;
+                        const weight = base + (actIdx < remainder ? 1 : 0);
+                        actIdx++;
+                        return { ...ca, weight };
+                      });
+                      setFormData({ ...formData, cs_assignments: updated });
+                    };
 
-                        {ca.is_active && (
-                          <div className="flex items-center gap-3 w-48">
-                            <input
-                              type="range"
-                              min="5"
-                              max="100"
-                              step="5"
-                              value={ca.weight}
-                              onChange={(e) => {
-                                const updated = [...formData.cs_assignments];
-                                updated[idx].weight = parseInt(e.target.value, 10);
-                                setFormData({ ...formData, cs_assignments: updated });
-                              }}
-                              className="w-full accent-brand-500 cursor-pointer"
-                            />
-                            <span className="text-xs font-mono font-bold text-brand-600 dark:text-brand-400 w-10 text-right">
-                              {ca.weight}%
+                    const handleToggleAll = () => {
+                      const nextState = !isAllSelected;
+                      const defaultWeight = nextState ? Math.max(10, Math.floor(100 / formData.cs_assignments.length)) : 0;
+                      const updated = formData.cs_assignments.map(ca => ({
+                        ...ca,
+                        is_active: nextState,
+                        weight: nextState ? (ca.weight > 0 ? ca.weight : defaultWeight) : 0
+                      }));
+                      setFormData({ ...formData, cs_assignments: updated });
+                    };
+
+                    const handleWeightChange = (idx, val) => {
+                      const cleanVal = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+                      const updated = [...formData.cs_assignments];
+                      updated[idx].weight = cleanVal;
+                      setFormData({ ...formData, cs_assignments: updated });
+                    };
+
+                    return (
+                      <>
+                        {/* Section Header with Quick Actions */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-800 dark:text-white">
+                              Pembagian Beban CS untuk Kampanye Ini
                             </span>
                           </div>
+
+                          {/* Action Buttons: Bagi Rata & Toggle Semua */}
+                          <div className="flex items-center gap-2 self-start sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={handleAutoBalance}
+                              disabled={activeList.length === 0}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-500/10 hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-[11px] font-bold transition-colors disabled:opacity-40"
+                              title="Bagi rata 100% ke semua CS aktif secara otomatis"
+                            >
+                              <Scale className="w-3 h-3" />
+                              <span>Bagi Rata (100%)</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleToggleAll}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold transition-colors"
+                            >
+                              {isAllSelected ? 'Lepas Semua' : 'Pilih Semua'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Visual Distribution Progress Bar */}
+                        {activeList.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3 flex overflow-hidden p-0.5 shadow-inner">
+                              {activeList.map((ca, idx) => {
+                                const widthPct = totalWeight > 0 ? (ca.weight / totalWeight) * 100 : 0;
+                                const color = CS_PALETTE[idx % CS_PALETTE.length];
+                                return (
+                                  <div
+                                    key={ca.cs_id}
+                                    style={{ width: `${widthPct}%`, backgroundColor: color }}
+                                    className="h-full rounded-sm transition-all duration-300 first:rounded-l-full last:rounded-r-full"
+                                    title={`${ca.cs_name}: ${ca.weight}%`}
+                                  />
+                                );
+                              })}
+                            </div>
+
+                            {/* Micro Legend Chips */}
+                            <div className="flex flex-wrap gap-2 pt-0.5">
+                              {activeList.map((ca, idx) => {
+                                const color = CS_PALETTE[idx % CS_PALETTE.length];
+                                return (
+                                  <span key={ca.cs_id} className="inline-flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                    <span>{ca.cs_name}: <strong>{ca.weight}%</strong></span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
-                      </div>
-                    ))}
-                  </div>
+
+                        {/* List of CS Rows */}
+                        <div className="space-y-2.5 bg-slate-50 dark:bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                          {formData.cs_assignments.length === 0 ? (
+                            <div className="text-center py-4 text-xs text-slate-500">Belum ada staf CS yang terdaftar di sistem.</div>
+                          ) : (
+                            formData.cs_assignments.map((ca, idx) => (
+                              <div
+                                key={ca.cs_id}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-xl transition-all ${
+                                  ca.is_active
+                                    ? 'bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-sm'
+                                    : 'bg-transparent border border-dashed border-slate-200 dark:border-slate-800/60 opacity-50'
+                                }`}
+                              >
+                                {/* Left Checkbox & CS Info */}
+                                <label className="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-800 dark:text-slate-200 min-w-0 select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={ca.is_active}
+                                    onChange={(e) => {
+                                      const updated = [...formData.cs_assignments];
+                                      updated[idx].is_active = e.target.checked;
+                                      if (e.target.checked && updated[idx].weight === 0) {
+                                        updated[idx].weight = 25;
+                                      }
+                                      setFormData({ ...formData, cs_assignments: updated });
+                                    }}
+                                    className="w-4 h-4 rounded text-brand-500 focus:ring-brand-500 accent-brand-500 shrink-0"
+                                  />
+                                  <CSAvatar name={ca.cs_name} size="xs" />
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{ca.cs_name}</div>
+                                    {!ca.is_active && (
+                                      <div className="text-[10px] text-slate-400 font-normal">Nonaktif di kampanye ini</div>
+                                    )}
+                                  </div>
+                                </label>
+
+                                {/* Right Slider & Number Input (Only when Active) */}
+                                {ca.is_active ? (
+                                  <div className="flex items-center gap-3 w-full sm:w-64 pl-7 sm:pl-0">
+                                    {/* Slider */}
+                                    <input
+                                      type="range"
+                                      min="1"
+                                      max="100"
+                                      step="1"
+                                      value={ca.weight}
+                                      onChange={(e) => handleWeightChange(idx, e.target.value)}
+                                      className="w-full accent-brand-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg"
+                                    />
+
+                                    {/* Numeric Input Box with Percentage Label */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={ca.weight}
+                                        onChange={(e) => handleWeightChange(idx, e.target.value)}
+                                        className="w-14 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-1.5 text-center font-mono font-bold text-xs text-brand-600 dark:text-brand-400 focus:outline-none focus:border-brand-500"
+                                      />
+                                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 select-none">
+                                        %
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="hidden sm:block text-[11px] text-slate-400 italic">0%</div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
-                {/* Nomor Cadangan / Fallback */}
-                <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Nomor WhatsApp Cadangan / Darurat (Jika Semua CS Off)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.fallback_number}
-                    onChange={(e) => setFormData({ ...formData, fallback_number: e.target.value })}
-                    placeholder="misal: 6281234567890"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-mono"
-                  />
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block leading-relaxed">
-                    Nomor ini otomatis menerima chat jika seluruh CS reguler sedang dimatikan atau kuota harian CS sudah penuh.
-                  </span>
-                </div>
+
 
                 {/* Proteksi Sticky Session (Anti-Duplikasi CS) */}
                 <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
@@ -698,19 +853,20 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Modal Footer Buttons */}
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3 shrink-0">
+                {/* Modal Footer Buttons (Sticky & Fixed at Bottom) */}
+                <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0B0F19]/90 backdrop-blur-md flex items-center justify-end gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors"
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white text-xs font-bold shadow-brand-glow transition-all active:scale-95"
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white text-xs font-bold shadow-brand-glow transition-all active:scale-95 cursor-pointer"
                   >
                     {editingCampaign ? 'Simpan Perubahan' : 'Buat Kampanye'}
                   </button>

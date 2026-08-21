@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CSAvatar from '../components/CSAvatar.jsx';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 import {
   BarChart3,
   Search,
@@ -20,11 +21,16 @@ export default function AnalyticsView({ campaigns, csList }) {
   const [search, setSearch] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [selectedCS, setSelectedCS] = useState('');
+  const [dateFilter, setDateFilter] = useState({
+    range: 'this_month',
+    startDate: '',
+    endDate: ''
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchLogs(1);
-  }, [selectedCampaign, selectedCS]);
+  }, [selectedCampaign, selectedCS, dateFilter]);
 
   const fetchLogs = async (page = 1) => {
     setLoading(true);
@@ -33,11 +39,16 @@ export default function AnalyticsView({ campaigns, csList }) {
         page,
         limit: 20,
         search,
+        range: dateFilter.range,
+        ...(dateFilter.startDate ? { start_date: dateFilter.startDate } : {}),
+        ...(dateFilter.endDate ? { end_date: dateFilter.endDate } : {}),
         ...(selectedCampaign ? { campaign_id: selectedCampaign } : {}),
         ...(selectedCS ? { cs_id: selectedCS } : {})
       });
 
-      const res = await fetch(`/api/analytics/logs?${params.toString()}`);
+      const res = await fetch(`/api/analytics/logs?${params.toString()}`, {
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
         setLogs(data.data);
@@ -65,11 +76,22 @@ export default function AnalyticsView({ campaigns, csList }) {
     const lower = (ch || '').toLowerCase();
     if (lower.includes('tiktok')) return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
     if (lower.includes('instagram') || lower.includes('ig')) return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-    if (lower.includes('tiktok')) return 'bg-pink-500/20 text-pink-500 border-pink-500/30';
-    if (lower.includes('instagram') || lower.includes('ig')) return 'bg-purple-500/20 text-purple-500 border-purple-500/30';
     if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
     if (lower.includes('google')) return 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30';
     return 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700';
+  };
+
+  // Build Export CSV URL
+  const exportCsvUrl = () => {
+    const params = new URLSearchParams({
+      range: dateFilter.range,
+      ...(dateFilter.startDate ? { start_date: dateFilter.startDate } : {}),
+      ...(dateFilter.endDate ? { end_date: dateFilter.endDate } : {}),
+      ...(selectedCampaign ? { campaign_id: selectedCampaign } : {}),
+      ...(selectedCS ? { cs_id: selectedCS } : {}),
+      ...(search ? { search } : {})
+    });
+    return `/api/analytics/export?${params.toString()}`;
   };
 
   return (
@@ -79,7 +101,7 @@ export default function AnalyticsView({ campaigns, csList }) {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-brand-500" />
-            Riwayat Log Klik & Lead Analytics
+            Riwayat Log & Analitik Klik WhatsApp
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Data real-time pengunjung yang mengklik link rotator, asal kota, perangkat, dan CS yang menerima
@@ -87,35 +109,43 @@ export default function AnalyticsView({ campaigns, csList }) {
         </div>
 
         <a
-          href="/api/analytics/export"
+          href={exportCsvUrl()}
           target="_blank"
           download
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-semibold text-xs transition-all self-start"
         >
           <Download className="w-4 h-4 text-brand-500" />
-          <span>Export Data (CSV)</span>
+          <span>Export Filtered Data (CSV)</span>
         </a>
       </div>
 
       {/* Filter Bar */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center gap-3 sm:gap-4">
+      <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center gap-3 sm:gap-4 flex-wrap relative z-30">
         {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[200px] w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari berdasarkan kota, IP, atau sumber iklan..."
+            placeholder="Cari kota, IP, atau sumber..."
             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-500"
           />
         </form>
+
+        {/* CRM Date Range Picker */}
+        <DateRangePicker
+          value={dateFilter.range}
+          startDate={dateFilter.startDate}
+          endDate={dateFilter.endDate}
+          onChange={(newFilter) => setDateFilter(newFilter)}
+        />
 
         {/* Campaign Filter */}
         <select
           value={selectedCampaign}
           onChange={(e) => setSelectedCampaign(e.target.value)}
-          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-brand-500 w-full md:w-48 font-medium"
+          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-brand-500 w-full md:w-44 font-medium"
         >
           <option value="">Semua Kampanye</option>
           {campaigns.map((c) => (
@@ -127,7 +157,7 @@ export default function AnalyticsView({ campaigns, csList }) {
         <select
           value={selectedCS}
           onChange={(e) => setSelectedCS(e.target.value)}
-          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-brand-500 w-full md:w-40 font-medium"
+          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-brand-500 w-full md:w-36 font-medium"
         >
           <option value="">Semua CS</option>
           {csList.map((cs) => (
@@ -161,7 +191,7 @@ export default function AnalyticsView({ campaigns, csList }) {
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-500">
-                    Tidak ada log klik yang sesuai dengan filter.
+                    Tidak ada log klik yang sesuai dengan filter periode ini.
                   </td>
                 </tr>
               ) : (
@@ -195,7 +225,7 @@ export default function AnalyticsView({ campaigns, csList }) {
                             </div>
                           </div>
                         ) : (
-                          <span className="text-amber-600 dark:text-amber-400 font-bold">Fallback</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-bold">Fallback Darurat</span>
                         )}
                       </td>
 
