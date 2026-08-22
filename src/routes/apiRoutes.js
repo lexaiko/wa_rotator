@@ -7,6 +7,7 @@ import AuthController from '../controllers/authController.js';
 import BackupController from '../controllers/backupController.js';
 import GreetingController from '../controllers/greetingController.js';
 import SourceCategoryController from '../controllers/sourceCategoryController.js';
+import SettingsController from '../controllers/settingsController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -83,5 +84,12 @@ router.get('/backup/export', authMiddleware, BackupController.exportData);
 router.post('/backup/import', authMiddleware, BackupController.importData);
 router.get('/backup/stats', authMiddleware, BackupController.getStats);
 router.post('/backup/reset', authMiddleware, BackupController.resetData);
+
+// ==========================================
+// 8. System Settings Routes (Protected)
+// ==========================================
+router.get('/settings', authMiddleware, SettingsController.getSettings);
+router.post('/settings', authMiddleware, SettingsController.updateSettings);
+router.put('/settings', authMiddleware, SettingsController.updateSettings);
 
 export default router;

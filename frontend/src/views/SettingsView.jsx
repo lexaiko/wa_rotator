@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Zap,
@@ -9,21 +9,77 @@ import {
   Cpu,
   Smartphone,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import { useModal } from '../context/ModalContext.jsx';
 
 export default function SettingsView() {
   const { showToast } = useModal();
-  const [fallbackNumber, setFallbackNumber] = useState('6281234567890');
-  const [brandName, setBrandName] = useState('TripBanyuwangi.com');
+  const [fallbackNumber, setFallbackNumber] = useState('');
+  const [brandName, setBrandName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const handleSave = (e) => {
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/settings', {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setFallbackNumber(data.data.default_fallback_number || data.data.DEFAULT_FALLBACK_NUMBER || '6281234567890');
+        setBrandName(data.data.default_brand_name || data.data.DEFAULT_BRAND_NAME || 'TripBanyuwangi.com');
+      }
+    } catch (err) {
+      console.error('Failed to load system settings:', err);
+      showToast('Gagal memuat pengaturan sistem dari database.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    showToast('Pengaturan sistem berhasil disimpan.', 'success');
-    setTimeout(() => setSavedSuccess(false), 3000);
+    if (!fallbackNumber.trim()) {
+      showToast('Nomor WhatsApp darurat tidak boleh kosong.', 'error');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          fallback_number: fallbackNumber.trim(),
+          brand_name: brandName.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSavedSuccess(true);
+        showToast(data.message || 'Pengaturan sistem berhasil disimpan ke database!', 'success');
+        setTimeout(() => setSavedSuccess(false), 3000);
+      } else {
+        showToast(data.message || 'Gagal menyimpan pengaturan.', 'error');
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      showToast('Terjadi kesalahan koneksi saat menyimpan pengaturan.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -84,10 +140,11 @@ export default function SettingsView() {
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white font-bold text-xs shadow-brand-glow transition-all active:scale-95 cursor-pointer"
+                  disabled={saving || loading}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white font-bold text-xs shadow-brand-glow transition-all active:scale-95 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Pengaturan</span>
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{saving ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
                 </button>
                 {savedSuccess && (
                   <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
