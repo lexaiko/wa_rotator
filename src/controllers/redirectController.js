@@ -7,6 +7,31 @@ import MessageService from '../services/messageService.js';
 import SpamProtectionService from '../services/spamProtectionService.js';
 import GreetingService from '../services/greetingService.js';
 
+let cachedFallbackNumber = null;
+let fallbackCacheExpiry = 0;
+
+export async function getDefaultFallbackNumber() {
+  const now = Date.now();
+  if (cachedFallbackNumber && now < fallbackCacheExpiry) {
+    return cachedFallbackNumber;
+  }
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: 'DEFAULT_FALLBACK_NUMBER' }
+    });
+    if (setting && setting.value) {
+      cachedFallbackNumber = setting.value;
+      fallbackCacheExpiry = now + 30000; // Cache 30s
+      return cachedFallbackNumber;
+    }
+  } catch (err) {
+    // Ignore db read error
+  }
+  cachedFallbackNumber = process.env.DEFAULT_FALLBACK_NUMBER || '6282230048875';
+  fallbackCacheExpiry = now + 30000;
+  return cachedFallbackNumber;
+}
+
 export class RedirectController {
   static async handleRedirect(req, res) {
     let slug = req.params.slug;
@@ -49,7 +74,7 @@ export class RedirectController {
 
       // Jika kampanye tidak aktif/tidak ada, redirect langsung ke nomor fallback default
       if (!campaign || !campaign.is_active) {
-        const defaultFallback = process.env.DEFAULT_FALLBACK_NUMBER || '6281234567890';
+        const defaultFallback = await getDefaultFallbackNumber();
         const fallbackUrl = `https://wa.me/${defaultFallback}?text=${encodeURIComponent('Halo, saya ingin tanya info paket wisata.')}`;
         return res.redirect(302, fallbackUrl);
       }
@@ -121,7 +146,7 @@ export class RedirectController {
       let csId = null;
 
       if (rotationResult.isFallback) {
-        targetPhone = rotationResult.fallbackNumber || process.env.DEFAULT_FALLBACK_NUMBER || '6281234567890';
+        targetPhone = rotationResult.fallbackNumber || await getDefaultFallbackNumber();
         targetName = 'Admin';
       } else if (rotationResult.selected) {
         const cs = rotationResult.selected.cs;
@@ -456,7 +481,7 @@ export class RedirectController {
 
     } catch (err) {
       console.error('Redirect controller error:', err);
-      const defaultFallback = process.env.DEFAULT_FALLBACK_NUMBER || '6281234567890';
+      const defaultFallback = await getDefaultFallbackNumber();
       return res.redirect(302, `https://wa.me/${defaultFallback}`);
     }
   }

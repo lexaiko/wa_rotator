@@ -17,6 +17,7 @@ export default function Sidebar({
   currentTab,
   setCurrentTab,
   stats,
+  sampleSlug = 'ig-bio',
   mobileOpen,
   onCloseMobile,
   onLogout
@@ -125,12 +126,12 @@ export default function Sidebar({
           </div>
 
           <a
-            href={typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:3001/kawah-ijen' : '/kawah-ijen'}
+            href={typeof window !== 'undefined' && window.location.port === '5173' ? `http://localhost:3001/${sampleSlug}` : `/${sampleSlug}`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-center gap-1.5 text-xs text-brand-600 dark:text-brand-400 font-semibold hover:text-brand-700 dark:hover:text-brand-300 bg-brand-500/10 dark:bg-brand-500/15 hover:bg-brand-500/20 py-2 rounded-lg transition-colors border border-brand-500/20"
           >
-            <span>Coba Redirect Link</span>
+            <span>Coba Redirect (/{sampleSlug})</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
 

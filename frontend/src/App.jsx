@@ -212,6 +212,7 @@ export default function App() {
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         stats={stats}
+        sampleSlug={campaigns?.[0]?.slug || 'ig-bio'}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
         onLogout={handleLogout}
