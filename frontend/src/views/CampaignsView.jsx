@@ -3,6 +3,17 @@ import { createPortal } from 'react-dom';
 import CSAvatar from '../components/CSAvatar.jsx';
 import { useModal } from '../context/ModalContext.jsx';
 import {
+  PLATFORM_REGISTRY,
+  COLOR_THEMES,
+  getPlatformMeta,
+  getIconComponent,
+  PlatformBadge,
+  TikTokIcon,
+  InstagramIcon,
+  WebsiteIcon,
+  FacebookIcon
+} from '../components/SocialIcons.jsx';
+import {
   Megaphone,
   Plus,
   Copy,
@@ -19,17 +30,76 @@ import {
   Eye,
   ShieldCheck,
   Globe,
+  Compass,
   Scale,
   CheckSquare,
   Square,
+  Search,
+  Layers,
+  Filter,
   X
 } from 'lucide-react';
+
+const SOURCE_GROUPS = [
+  {
+    id: 'TIKTOK',
+    label: 'TikTok',
+    sapaan: 'Hola',
+    desc: 'Link Bio TikTok & Iklan TikTok Ads',
+    Icon: TikTokIcon,
+    theme: PLATFORM_REGISTRY.tiktok.theme
+  },
+  {
+    id: 'INSTAGRAM',
+    label: 'Instagram',
+    sapaan: 'Halo',
+    desc: 'Link Bio Instagram & IG Story',
+    Icon: InstagramIcon,
+    theme: PLATFORM_REGISTRY.instagram.theme
+  },
+  {
+    id: 'WEBSITE',
+    label: 'Website',
+    sapaan: 'Hai',
+    desc: 'Tombol WhatsApp di Website & Landing Page',
+    Icon: WebsiteIcon,
+    theme: PLATFORM_REGISTRY.website.theme
+  },
+  {
+    id: 'FACEBOOK',
+    label: 'Facebook',
+    sapaan: 'Halo',
+    desc: 'Meta Ads & Fanpage Facebook',
+    Icon: FacebookIcon,
+    theme: PLATFORM_REGISTRY.facebook.theme
+  },
+  {
+    id: 'AUTO',
+    label: 'Otomatis / Multi-Channel',
+    sapaan: 'Dinamis',
+    desc: 'Deteksi Otomatis Referrer & Parameter UTM',
+    Icon: Compass,
+    theme: PLATFORM_REGISTRY.auto.theme
+  }
+];
+
+const getNormalizedSource = (target_channel) => {
+  const tc = (target_channel || 'AUTO').toUpperCase();
+  if (tc === 'TIKTOK' || tc === 'TT') return 'TIKTOK';
+  if (tc === 'INSTAGRAM' || tc === 'IG') return 'INSTAGRAM';
+  if (tc === 'WEBSITE' || tc === 'WEB' || tc === 'DIRECT') return 'WEBSITE';
+  if (tc === 'FACEBOOK' || tc === 'FB') return 'FACEBOOK';
+  return 'AUTO';
+};
 
 export default function CampaignsView({ campaigns: propCampaigns = [], csList, onRefresh }) {
   const { showConfirm, showAlert, showToast } = useModal();
   const [campaigns, setCampaigns] = useState(propCampaigns);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(propCampaigns.length === 0);
   const [copiedSlug, setCopiedSlug] = useState(null);
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,9 +109,10 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
     slug: '',
     description: '',
     rotation_mode: 'SMOOTH_WEIGHTED',
-    message_template: 'Halo {nama_cs}, {greeting}! Saya tertarik dengan paket {campaign} dari {channel}. Boleh minta info detail & pricelistnya?',
+    message_template: '{greeting} {nama_cs}, saya tertarik dengan promo {campaign} dari {channel}. Boleh minta info detail & pricelistnya?',
     fallback_number: '6281234567890',
     redirect_mode: 'INTERSTITIAL',
+    target_channel: 'AUTO',
     pixel_fb_id: '',
     pixel_tiktok_id: '',
     pixel_ga_id: '',
@@ -52,6 +123,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
   });
 
   useEffect(() => {
+    fetchCategories();
     if (propCampaigns.length > 0) {
       setCampaigns(propCampaigns);
       setLoading(false);
@@ -59,6 +131,18 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       fetchCampaigns();
     }
   }, [propCampaigns]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/source-categories', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setCategories(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load categories in CampaignsView:', err);
+    }
+  };
 
   const fetchCampaigns = async () => {
     try {
@@ -76,12 +160,69 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
     }
   };
 
+  // Build dynamic source groups from database categories
+  const activeGroups = categories.length > 0
+    ? categories.filter(c => c.is_active).map(cat => ({
+        id: cat.code.toUpperCase(),
+        code: cat.code,
+        label: cat.name,
+        sapaan: cat.greeting_keyword,
+        desc: cat.description || `Platform ${cat.name}`,
+        Icon: getIconComponent(cat.icon_type),
+        theme: COLOR_THEMES[cat.badge_color] || COLOR_THEMES.slate
+      }))
+    : SOURCE_GROUPS;
+
+  const getNormalizedSource = (target_channel) => {
+    const tc = (target_channel || 'AUTO').toUpperCase();
+    const found = categories.find(c => c.code.toUpperCase() === tc);
+    if (found) return found.code.toUpperCase();
+    if (tc === 'TT' || tc === 'TIKTOK') return 'TIKTOK';
+    if (tc === 'IG' || tc === 'INSTAGRAM') return 'INSTAGRAM';
+    if (tc === 'WEB' || tc === 'WEBSITE' || tc === 'DIRECT') return 'WEBSITE';
+    if (tc === 'FB' || tc === 'FACEBOOK') return 'FACEBOOK';
+    return 'AUTO';
+  };
+
+  const generateSlugWithChannel = (rawText, channelCode) => {
+    if (!rawText) return '';
+    let base = rawText.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (!base) return '';
+
+    // Strip any existing category code suffix dynamically from database categories
+    for (const cat of categories) {
+      const code = cat.code.toLowerCase();
+      if (base.endsWith(`-${code}`)) {
+        base = base.slice(0, -(code.length + 1));
+        break;
+      }
+    }
+
+    if (!channelCode || channelCode.toUpperCase() === 'AUTO') {
+      return base;
+    }
+
+    const matched = categories.find(c => c.code.toUpperCase() === channelCode.toUpperCase());
+    const suffix = matched ? matched.code.toLowerCase() : channelCode.toLowerCase();
+
+    return `${base}-${suffix}`;
+  };
+
+  const getRotatorBaseUrl = () => {
+    if (typeof window === 'undefined') return '';
+    // Jika sedang di dev server Vite (port 5173), arahkan ke Backend Rotator (port 3001)
+    if (window.location.port === '5173') {
+      return `${window.location.protocol}//${window.location.hostname}:3001`;
+    }
+    return window.location.origin;
+  };
+
   const handleCopyLink = (slug) => {
-    const origin = window.location.origin;
-    const url = `${origin}/${slug}`;
+    const baseUrl = getRotatorBaseUrl();
+    const url = `${baseUrl}/${slug}`;
     navigator.clipboard.writeText(url);
     setCopiedSlug(slug);
-    showToast(`Link /${slug} berhasil disalin ke clipboard!`, 'success', 2500);
+    showToast(`Link ${url} berhasil disalin ke clipboard!`, 'success', 2500);
     setTimeout(() => setCopiedSlug(null), 2000);
   };
 
@@ -134,9 +275,10 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       slug: '',
       description: '',
       rotation_mode: 'SMOOTH_WEIGHTED',
-      message_template: 'Halo {nama_cs}, {greeting}! Saya tertarik dengan paket {campaign} dari {channel}.',
+      message_template: '{greeting} {nama_cs}, saya tertarik dengan promo {campaign} dari {channel}.',
       fallback_number: '6281234567890',
       redirect_mode: 'INTERSTITIAL',
+      target_channel: 'AUTO',
       pixel_fb_id: '',
       pixel_tiktok_id: '',
       pixel_ga_id: '',
@@ -163,6 +305,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       message_template: camp.message_template,
       fallback_number: camp.fallback_number || '6281234567890',
       redirect_mode: camp.redirect_mode,
+      target_channel: camp.target_channel || 'AUTO',
       pixel_fb_id: camp.pixel_fb_id || '',
       pixel_tiktok_id: camp.pixel_tiktok_id || '',
       pixel_ga_id: camp.pixel_ga_id || '',
@@ -248,145 +391,314 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
         </button>
       </div>
 
-      {/* Grid Kampanye */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <div className="col-span-3 text-center py-12 text-slate-500 text-sm">
-            Memuat daftar kampanye...
-          </div>
-        ) : campaigns.length === 0 ? (
-          <div className="col-span-3 glass-panel p-12 rounded-2xl text-center">
-            <Megaphone className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">Belum Ada Kampanye</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Mulai buat link rotator pertama untuk iklan Trip Banyuwangi.</p>
+      {/* Source Grouping Tabs & Search Filter Bar */}
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Source Tabs Filter */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
             <button
-              onClick={openCreateModal}
-              className="px-4 py-2 rounded-xl bg-brand-500 text-white text-xs font-bold shadow-brand-glow"
-            >
-              + Buat Kampanye Baru
-            </button>
-          </div>
-        ) : (
-          campaigns.map((camp) => (
-            <div
-              key={camp.id}
-              className={`glass-panel p-6 rounded-2xl flex flex-col justify-between transition-all duration-300 ${
-                camp.is_active ? 'border-slate-200 dark:border-white/10' : 'opacity-60 border-rose-500/20'
+              onClick={() => setSelectedSourceFilter('ALL')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                selectedSourceFilter === 'ALL'
+                  ? 'bg-brand-500 text-white shadow-brand-glow'
+                  : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
-              <div>
-                {/* Top badges & Toggle */}
-                <div className="flex items-center justify-between mb-3">
-                  <span
-                    className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                      camp.rotation_mode === 'SMOOTH_WEIGHTED'
-                        ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/30'
-                        : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
-                    }`}
-                  >
-                    {camp.rotation_mode.replace('_', ' ')}
+              <Layers className="w-3.5 h-3.5" />
+              <span>Semua Sumber</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                selectedSourceFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}>
+                {campaigns.length}
+              </span>
+            </button>
+
+            {activeGroups.map((group) => {
+              const Icon = group.Icon;
+              const count = campaigns.filter(c => getNormalizedSource(c.target_channel) === group.id).length;
+              const isSelected = selectedSourceFilter === group.id;
+
+              return (
+                <button
+                  key={group.id}
+                  onClick={() => setSelectedSourceFilter(group.id)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                    isSelected
+                      ? `${group.theme.bg} ${group.theme.border} ${group.theme.text} shadow-sm`
+                      : 'bg-slate-100 dark:bg-slate-800/80 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{group.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    isSelected ? 'bg-black/10 dark:bg-white/10' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {count}
                   </span>
+                </button>
+              );
+            })}
+          </div>
 
-                  <button
-                    onClick={() => handleToggle(camp.id)}
-                    className="flex items-center gap-1.5 text-xs font-semibold"
-                  >
-                    {camp.is_active ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1">
-                        <ToggleRight className="w-6 h-6 text-emerald-500" />
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                        <ToggleLeft className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                      </span>
-                    )}
-                  </button>
-                </div>
+          {/* Search Input */}
+          <div className="relative w-full md:w-64 shrink-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari kampanye / slug..."
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
-                {/* Title & Description */}
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 leading-snug">{camp.title}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">{camp.description || 'Tidak ada deskripsi'}</p>
+      {/* Main Campaign List Content */}
+      {loading ? (
+        <div className="text-center py-16 text-slate-500 text-sm">
+          Memuat daftar kampanye...
+        </div>
+      ) : campaigns.length === 0 ? (
+        <div className="glass-panel p-12 rounded-2xl text-center">
+          <Megaphone className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">Belum Ada Kampanye</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Mulai buat link rotator pertama untuk iklan Trip Banyuwangi.</p>
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2 rounded-xl bg-brand-500 text-white text-xs font-bold shadow-brand-glow cursor-pointer"
+          >
+            + Buat Kampanye Baru
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Render by Source Groups */}
+          {(selectedSourceFilter === 'ALL'
+            ? activeGroups
+            : activeGroups.filter(g => g.id === selectedSourceFilter)
+          ).map((group) => {
+            const Icon = group.Icon;
+            const groupCampaigns = campaigns.filter(c => {
+              const matchSource = getNormalizedSource(c.target_channel) === group.id;
+              if (!matchSource) return false;
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              return (
+                (c.title || '').toLowerCase().includes(q) ||
+                (c.slug || '').toLowerCase().includes(q) ||
+                (c.description || '').toLowerCase().includes(q)
+              );
+            });
 
-                {/* Direct Link Box & Copy */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 mb-4 group">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Globe className="w-4 h-4 text-brand-500 shrink-0" />
-                    <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
-                      /{camp.slug}
+            // If in ALL mode and group has 0 campaigns matching, hide empty section
+            if (selectedSourceFilter === 'ALL' && groupCampaigns.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={group.id} className="space-y-4">
+                {/* Group Section Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl border ${group.theme.bg} ${group.theme.border} ${group.theme.text}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Sumber: {group.label}
+                        </h3>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${group.theme.bg} ${group.theme.border} ${group.theme.text}`}>
+                          Sapaan: {group.sapaan}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{group.desc}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {groupCampaigns.length} Kampanye Aktif
                     </span>
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleCopyLink(camp.slug)}
-                      className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700"
-                      title="Salin Link"
-                    >
-                      {copiedSlug === camp.slug ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                    <a
-                      href={`/r/${camp.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700"
-                      title="Buka Link Pengalihan"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
                 </div>
 
-                {/* CS Assigned List in Campaign Card */}
-                <div className="space-y-2 mb-4">
-                  <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                    CS Bertugas ({camp.cs_assignments?.filter(ca => ca.is_active)?.length || 0})
+                {/* Grid Cards within this group */}
+                {groupCampaigns.length === 0 ? (
+                  <div className="p-8 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                    Tidak ada kampanye pada kelompok {group.label}.
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {camp.cs_assignments?.map((ca) => (
-                      <span
-                        key={ca.cs_id}
-                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 ${
-                          ca.is_active
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                            : 'bg-slate-100/50 dark:bg-slate-900/50 text-slate-400 border-transparent line-through'
-                        }`}
-                      >
-                        <CSAvatar name={ca.cs?.name || 'CS'} size="xs" />
-                        <span>{ca.cs?.name}</span>
-                        <span className="text-[10px] text-brand-600 dark:text-brand-400 font-bold font-mono">({ca.weight}%)</span>
-                      </span>
-                    ))}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {groupCampaigns.map((camp) => {
+                      const effectiveSlug = generateSlugWithChannel(camp.slug, camp.target_channel);
+                      const catObj = categories.find(c => c.code.toUpperCase() === (camp.target_channel || '').toUpperCase());
+                      const platformMeta = getPlatformMeta(camp.target_channel || 'auto', catObj);
+                      const PlatformIcon = platformMeta.Icon;
+                      const isAutoChannel = !camp.target_channel || camp.target_channel.toUpperCase() === 'AUTO';
+
+                      return (
+                        <div
+                          key={camp.id}
+                          className={`glass-panel p-5 sm:p-6 rounded-2xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg ${
+                            camp.is_active ? 'border-slate-200 dark:border-white/10' : 'opacity-60 border-rose-500/20'
+                          }`}
+                        >
+                          <div>
+                            {/* Top badges & Toggle */}
+                            <div className="flex items-center justify-between mb-3 gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Target Channel Badge with Official Icon */}
+                                <PlatformBadge platform={camp.target_channel || 'auto'} category={catObj} size="sm" />
+
+                                <span
+                                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                    camp.rotation_mode === 'SMOOTH_WEIGHTED'
+                                      ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/30'
+                                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                                  }`}
+                                >
+                                  {camp.rotation_mode.replace('_', ' ')}
+                                </span>
+                              </div>
+
+                              <button
+                                onClick={() => handleToggle(camp.id)}
+                                className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                              >
+                                {camp.is_active ? (
+                                  <span className="text-emerald-500 font-bold flex items-center gap-1">
+                                    <ToggleRight className="w-6 h-6 text-emerald-500" />
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                    <ToggleLeft className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Title & Description */}
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 leading-snug">{camp.title}</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">{camp.description || 'Tidak ada deskripsi'}</p>
+
+                            {/* Direct Link Box & Copy (Directly Tailored to Platform) */}
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 mb-3 group">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`p-1.5 rounded-lg border shrink-0 ${platformMeta.theme.bg} ${platformMeta.theme.border} ${platformMeta.theme.text}`}>
+                                  <PlatformIcon className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                                  /{effectiveSlug}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => handleCopyLink(effectiveSlug)}
+                                  className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
+                                  title={`Salin Link /${effectiveSlug}`}
+                                >
+                                  {copiedSlug === effectiveSlug ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
+                                <a
+                                  href={`${getRotatorBaseUrl()}/${effectiveSlug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors border border-slate-200 dark:border-slate-700"
+                                  title="Buka Link Pengalihan"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            </div>
+
+                            {/* Show Quick Alternative Links only if Multi-Channel/AUTO */}
+                            {isAutoChannel && categories.filter(c => c.is_active && c.code.toLowerCase() !== 'auto').length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap mb-4">
+                                <span className="text-[10px] text-slate-400 font-semibold mr-0.5">Link Kategori:</span>
+                                {categories.filter(c => c.is_active && c.code.toLowerCase() !== 'auto').map((cat) => {
+                                  const fullSuffixSlug = `${camp.slug}-${cat.code}`;
+                                  return (
+                                    <button
+                                      key={cat.code}
+                                      onClick={() => handleCopyLink(fullSuffixSlug)}
+                                      className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80 hover:bg-brand-500/10 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 border border-slate-200 dark:border-slate-700/60 transition-colors cursor-pointer"
+                                      title={`Salin Link /${fullSuffixSlug} (Sapaan: ${cat.greeting_keyword})`}
+                                    >
+                                      {copiedSlug === fullSuffixSlug ? '✓ Tersalin' : `-${cat.code}`}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* CS Assigned List in Campaign Card */}
+                            <div className="space-y-2 mb-4">
+                              <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                CS Bertugas ({camp.cs_assignments?.filter(ca => ca.is_active)?.length || 0})
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {camp.cs_assignments?.map((ca) => (
+                                  <span
+                                    key={ca.cs_id}
+                                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 ${
+                                      ca.is_active
+                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                                        : 'bg-slate-100/50 dark:bg-slate-900/50 text-slate-400 border-transparent line-through'
+                                    }`}
+                                  >
+                                  <CSAvatar name={ca.cs?.name || 'CS'} size="xs" />
+                                  <span>{ca.cs?.name}</span>
+                                  <span className="text-[10px] text-brand-600 dark:text-brand-400 font-bold font-mono">({ca.weight}%)</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Footer: Quick Actions */}
+                        <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {camp.redirect_mode === 'DIRECT_302' ? '⚡ Instan 302' : '🎯 Tracking Pixel'}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openEditModal(camp)}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-brand-500 transition-colors cursor-pointer"
+                              title="Edit Kampanye"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(camp.id)}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors cursor-pointer"
+                              title="Hapus Kampanye"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   </div>
-                </div>
+                )}
               </div>
-
-              {/* Card Footer: Quick Actions */}
-              <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {camp.redirect_mode === 'DIRECT_302' ? '⚡ Instan 302' : '🎯 Tracking Pixel'}
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openEditModal(camp)}
-                    className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-brand-500 transition-colors"
-                    title="Edit Kampanye"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(camp.id)}
-                    className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors"
-                    title="Hapus Kampanye"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modal Buat / Edit Kampanye */}
       {isModalOpen &&
@@ -425,11 +737,11 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                         setFormData({
                           ...formData,
                           title,
-                          slug: !editingCampaign ? title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') : formData.slug
+                          slug: !editingCampaign ? generateSlugWithChannel(title, formData.target_channel) : formData.slug
                         });
                       }}
                       placeholder="misal: Promo Safari Baluran"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-semibold"
                     />
                   </div>
 
@@ -449,7 +761,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                       />
                     </div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
-                      URL: <span className="text-brand-600 dark:text-brand-400 font-semibold">{window.location.origin}/{formData.slug || 'slug'}</span>
+                      URL: <span className="text-brand-600 dark:text-brand-400 font-semibold">{getRotatorBaseUrl()}/{formData.slug || 'slug'}</span>
                     </div>
                   </div>
                 </div>
@@ -548,6 +860,46 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                       ))}
                     </div>
                   </div>
+
+                  {/* 3. Target Platform / Sumber Klik */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Target Platform / Sumber Klik (Otomatis Sapaan)
+                      </label>
+                      <span className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold">Mengunci sapaan pembuka tanpa UTM</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {activeGroups.map((item) => {
+                        const Icon = item.Icon;
+                        const isSelected = (formData.target_channel || 'AUTO').toUpperCase() === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              const newTarget = item.id;
+                              const updatedSlug = generateSlugWithChannel(formData.slug || formData.title, newTarget);
+                              setFormData({
+                                ...formData,
+                                target_channel: newTarget,
+                                slug: updatedSlug || formData.slug
+                              });
+                            }}
+                            className={`p-2.5 rounded-xl text-center border transition-all cursor-pointer ${
+                              isSelected
+                                ? `${item.theme.bg} ${item.theme.border} ${item.theme.text} font-bold shadow-sm`
+                                : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4 mx-auto mb-1 shrink-0" />
+                            <div className="text-xs font-bold truncate">{item.label}</div>
+                            <div className="text-[10px] opacity-75 mt-0.5 truncate">Sapaan: {item.sapaan || '-'}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Dynamic Message Template */}
@@ -568,8 +920,9 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                   {/* Tag Chips */}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {[
+                      { tag: '{greeting}', desc: 'Sapaan CRM (Hola/Hi/Halo)' },
                       { tag: '{nama_cs}', desc: 'Nama CS' },
-                      { tag: '{greeting}', desc: 'Sapaan Pagi/Siang' },
+                      { tag: '{waktu_sapaan}', desc: 'Pagi/Siang/Malam' },
                       { tag: '{kota}', desc: 'Kota Tamu' },
                       { tag: '{channel}', desc: 'Sosmed/Iklan' },
                       { tag: '{campaign}', desc: 'Nama Paket' },

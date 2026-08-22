@@ -5,10 +5,12 @@ import GeoService from '../services/geoService.js';
 import UserAgentService from '../services/userAgentService.js';
 import MessageService from '../services/messageService.js';
 import SpamProtectionService from '../services/spamProtectionService.js';
+import GreetingService from '../services/greetingService.js';
 
 export class RedirectController {
   static async handleRedirect(req, res) {
-    const slug = req.params.slug;
+    let slug = req.params.slug;
+    let suffixSource = null;
 
     // Cegah browser meng-cache respon redirect agar setiap klik selalu dirotasi
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -16,7 +18,34 @@ export class RedirectController {
     res.setHeader('Expires', '0');
 
     try {
-      const campaign = await cacheService.getCampaign(slug);
+      let campaign = await cacheService.getCampaign(slug);
+
+      // Dynamic Suffix Decomposition for /slug-campaign-slugsource based on database categories & aliases
+      const allCategories = await GreetingService.getSourceCategories();
+      if (!campaign && slug && slug.includes('-')) {
+        for (const cat of allCategories) {
+          const code = cat.code.toLowerCase();
+          const candidateSuffixes = [code];
+          if (code === 'instagram') candidateSuffixes.push('ig');
+          if (code === 'tiktok') candidateSuffixes.push('tt');
+          if (code === 'website') candidateSuffixes.push('web', 'direct');
+          if (code === 'facebook') candidateSuffixes.push('fb');
+          if (code === 'youtube') candidateSuffixes.push('yt');
+
+          for (const suffix of candidateSuffixes) {
+            if (slug.endsWith(`-${suffix}`)) {
+              const candidateSlug = slug.slice(0, -(suffix.length + 1));
+              const candidateCampaign = await cacheService.getCampaign(candidateSlug);
+              if (candidateCampaign) {
+                campaign = candidateCampaign;
+                suffixSource = cat;
+                break;
+              }
+            }
+          }
+          if (campaign) break;
+        }
+      }
 
       // Jika kampanye tidak aktif/tidak ada, redirect langsung ke nomor fallback default
       if (!campaign || !campaign.is_active) {
@@ -30,7 +59,51 @@ export class RedirectController {
       const geo = GeoService.lookup(ip);
       const userAgent = req.headers['user-agent'] || '';
       const ua = UserAgentService.parse(userAgent);
-      const channel = UserAgentService.detectChannel(req);
+      const detectedChannel = UserAgentService.detectChannel(req);
+
+      // Prioritas Channel Dinamis:
+      // 1. Suffix Slug (cth: /bio-ig atau /bio-instagram ➔ Sapaan Halo, Channel Instagram)
+      // 2. Explicit Route Param :source (cth: /tiktok/kawah-ijen)
+      // 3. Query Param utm_source (cth: ?utm_source=tiktok)
+      // 4. Campaign Target Channel (jika diset khusus di kampanye selain AUTO)
+      // 5. In-App Browser / Referrer Auto-Detect
+      let channel = detectedChannel;
+      let greetingKeyword = null;
+
+      if (suffixSource) {
+        channel = suffixSource.name;
+        greetingKeyword = suffixSource.greeting_keyword;
+      } else if (req.params.source || req.query.utm_source || req.query.source) {
+        const rawSource = (req.params.source || req.query.utm_source || req.query.source).toLowerCase();
+        const matchedCat = allCategories.find(c => {
+          const code = c.code.toLowerCase();
+          if (code === rawSource) return true;
+          if (code === 'instagram' && rawSource === 'ig') return true;
+          if (code === 'tiktok' && rawSource === 'tt') return true;
+          if (code === 'website' && (rawSource === 'web' || rawSource === 'direct')) return true;
+          if (code === 'facebook' && rawSource === 'fb') return true;
+          if (code === 'youtube' && rawSource === 'yt') return true;
+          return false;
+        });
+        if (matchedCat) {
+          channel = matchedCat.name;
+          greetingKeyword = matchedCat.greeting_keyword;
+        } else {
+          channel = rawSource.charAt(0).toUpperCase() + rawSource.slice(1);
+        }
+      } else if (campaign.target_channel && campaign.target_channel.toUpperCase() !== 'AUTO') {
+        const matchedCat = allCategories.find(c => {
+          const code = c.code.toUpperCase();
+          const target = campaign.target_channel.toUpperCase();
+          return code === target || (code === 'INSTAGRAM' && target === 'IG') || (code === 'TIKTOK' && target === 'TT');
+        });
+        if (matchedCat) {
+          channel = matchedCat.name;
+          greetingKeyword = matchedCat.greeting_keyword;
+        } else {
+          channel = campaign.target_channel;
+        }
+      }
 
       // 2. Proteksi Anti-Spam & Bot Scraper
       const isBot = SpamProtectionService.isBot(userAgent);

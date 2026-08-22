@@ -6,7 +6,7 @@ export class SimulationController {
   // POST /api/simulation/run
   static async runSimulation(req, res) {
     try {
-      const { campaign_id, iterations = 100, mock_city = 'Surabaya', ignore_schedule = false } = req.body;
+      const { campaign_id, iterations = 100, mock_city = 'Surabaya', mock_channel = 'TikTok', ignore_schedule = false } = req.body;
       const count = Math.min(Math.max(parseInt(iterations, 10) || 100, 1), 1000);
 
       const campaign = await prisma.campaign.findUnique({
@@ -92,11 +92,20 @@ export class SimulationController {
       }));
 
       // Generate preview message
+      let effectiveChannel = mock_channel;
+      if (mock_channel === 'AUTO' || !mock_channel) {
+        if (campaign.target_channel && campaign.target_channel !== 'AUTO') {
+          effectiveChannel = campaign.target_channel;
+        } else {
+          effectiveChannel = 'Website';
+        }
+      }
+
       const firstCS = campaign.cs_assignments[0]?.cs;
       const sampleMessage = MessageService.formatMessage(campaign.message_template, {
         csName: firstCS?.name || 'Admin',
         city: mock_city,
-        channel: 'TikTok',
+        channel: effectiveChannel,
         campaignTitle: campaign.title,
         slug: campaign.slug
       });

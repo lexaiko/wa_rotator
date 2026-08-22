@@ -5,6 +5,8 @@ import AnalyticsController from '../controllers/analyticsController.js';
 import SimulationController from '../controllers/simulationController.js';
 import AuthController from '../controllers/authController.js';
 import BackupController from '../controllers/backupController.js';
+import GreetingController from '../controllers/greetingController.js';
+import SourceCategoryController from '../controllers/sourceCategoryController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -40,7 +42,26 @@ router.post('/cs/:id/reset-counter', authMiddleware, CSController.resetCounter);
 router.delete('/cs/:id', authMiddleware, CSController.delete);
 
 // ==========================================
-// 4. Analytics Routes (Protected)
+// 4. Source Categories CRUD (Sosmed / Sumber Klik, Protected)
+// ==========================================
+router.get('/source-categories', authMiddleware, SourceCategoryController.getAll);
+router.get('/source-categories/:id', authMiddleware, SourceCategoryController.getById);
+router.post('/source-categories', authMiddleware, SourceCategoryController.create);
+router.put('/source-categories/:id', authMiddleware, SourceCategoryController.update);
+router.patch('/source-categories/:id/toggle', authMiddleware, SourceCategoryController.toggle);
+router.delete('/source-categories/:id', authMiddleware, SourceCategoryController.delete);
+
+// ==========================================
+// 5. Greeting Rules Routes (Protected)
+// ==========================================
+router.get('/greeting-rules', authMiddleware, GreetingController.getAll);
+router.post('/greeting-rules', authMiddleware, GreetingController.create);
+router.put('/greeting-rules/:id', authMiddleware, GreetingController.update);
+router.delete('/greeting-rules/:id', authMiddleware, GreetingController.delete);
+router.post('/greeting-rules/sync-crm', authMiddleware, GreetingController.syncCrm);
+
+// ==========================================
+// 5. Analytics Routes (Protected)
 // ==========================================
 router.get('/analytics/summary', authMiddleware, AnalyticsController.getSummary);
 router.get('/analytics/timeseries', authMiddleware, AnalyticsController.getTimeSeries);
@@ -51,12 +72,12 @@ router.get('/analytics/logs', authMiddleware, AnalyticsController.getClickLogs);
 router.get('/analytics/export', authMiddleware, AnalyticsController.exportCsv);
 
 // ==========================================
-// 5. Simulator Routes (Protected)
+// 6. Simulator Routes (Protected)
 // ==========================================
 router.post('/simulation/run', authMiddleware, SimulationController.runSimulation);
 
 // ==========================================
-// 6. Data Backup & Restore Routes (Protected)
+// 7. Data Backup & Restore Routes (Protected)
 // ==========================================
 router.get('/backup/export', authMiddleware, BackupController.exportData);
 router.post('/backup/import', authMiddleware, BackupController.importData);

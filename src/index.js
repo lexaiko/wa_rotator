@@ -59,6 +59,21 @@ app.get('/:slug', (req, res, next) => {
   return RedirectController.handleRedirect(req, res);
 });
 
+// Direct combined source + slug redirect (e.g. localhost:3001/tiktok/kawah-ijen or localhost:3001/ig/kawah-ijen)
+app.get('/:source/:slug', (req, res, next) => {
+  const { source, slug } = req.params;
+  if (
+    source === 'api' ||
+    source === 'health' ||
+    source === 'admin' ||
+    source === 'assets' ||
+    slug.includes('.')
+  ) {
+    return next();
+  }
+  return RedirectController.handleRedirect(req, res);
+});
+
 // SPA Fallback for Frontend Dashboard
 app.get('*', (req, res) => {
   const indexPath = path.join(frontendDistPath, 'index.html');

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,6 +16,7 @@ model Campaign {
   message_template String       @default("Halo {nama_cs}, saya tertarik dengan paket wisata Trip Banyuwangi dari {channel}!")
   fallback_number  String?      @default("6281234567890")
   redirect_mode    String       @default("INTERSTITIAL") // DIRECT_302, INTERSTITIAL
+  target_channel   String?      @default("AUTO") // AUTO, TIKTOK, INSTAGRAM, WEBSITE, FACEBOOK
   pixel_fb_id      String?
   pixel_tiktok_id  String?
   pixel_ga_id      String?
@@ -116,4 +117,26 @@ model AdminUser {
   last_login_at DateTime?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
+}
+
+model GreetingRule {
+  id         Int      @id @default(autoincrement())
+  keyword    String   @unique // e.g. "hola", "hai", "halo"
+  source     String   // e.g. "tiktok", "website", "instagram"
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model SourceCategory {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique // e.g. "tiktok", "instagram", "website", "facebook", "google", "youtube", "rekomendasi"
+  name             String   // e.g. "TikTok", "Instagram", "Website", "Facebook"
+  greeting_keyword String?  @default("halo") // e.g. "hola", "halo", "hai"
+  icon_type        String   @default("globe") // "tiktok", "instagram", "website", "facebook", "youtube", "google", "users", "auto"
+  badge_color      String   @default("slate") // "rose", "purple", "emerald", "blue", "amber", "teal", "slate"
+  description      String?
+  is_active        Boolean  @default(true)
+  sort_order       Int      @default(0)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 }

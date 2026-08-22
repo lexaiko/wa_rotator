@@ -14,6 +14,7 @@ export class BackupController {
       let campaignCS = [];
       let clickLogs = [];
       let systemSettings = [];
+      let greetingRules = [];
 
       if (type === 'full' || type === 'campaigns') {
         campaigns = await prisma.campaign.findMany({
@@ -32,6 +33,7 @@ export class BackupController {
       if (type === 'full') {
         campaignCS = await prisma.campaignCS.findMany();
         systemSettings = await prisma.systemSetting.findMany();
+        greetingRules = await prisma.greetingRule.findMany();
       }
 
       if (type === 'full' || type === 'logs') {
@@ -54,7 +56,8 @@ export class BackupController {
             cs_admins: csList.length,
             campaign_cs: campaignCS.length,
             click_logs: clickLogs.length,
-            system_settings: systemSettings.length
+            system_settings: systemSettings.length,
+            greeting_rules: greetingRules.length
           }
         },
         data: {
@@ -62,7 +65,8 @@ export class BackupController {
           csList,
           campaignCS,
           clickLogs,
-          systemSettings
+          systemSettings,
+          greetingRules
         }
       };
 
@@ -102,13 +106,14 @@ export class BackupController {
         });
       }
 
-      const { campaigns = [], csList = [], campaignCS = [], clickLogs = [], systemSettings = [] } = backup.data;
+      const { campaigns = [], csList = [], campaignCS = [], clickLogs = [], systemSettings = [], greetingRules = [] } = backup.data;
 
       let resultCounts = {
         campaigns: 0,
         csList: 0,
         campaignCS: 0,
-        clickLogs: 0
+        clickLogs: 0,
+        greetingRules: 0
       };
 
       if (mode === 'replace') {
@@ -119,6 +124,18 @@ export class BackupController {
           await tx.campaignCS.deleteMany({});
           await tx.campaign.deleteMany({});
           await tx.cSAdmin.deleteMany({});
+          await tx.greetingRule.deleteMany({});
+
+          // 1b. Restore Greeting Rules
+          for (const gr of greetingRules) {
+            await tx.greetingRule.create({
+              data: {
+                keyword: gr.keyword.trim().toLowerCase(),
+                source: gr.source.trim().toLowerCase()
+              }
+            });
+            resultCounts.greetingRules++;
+          }
 
           // 2. Map old CS IDs to new CS IDs if autoincrement changes
           const csIdMap = new Map();

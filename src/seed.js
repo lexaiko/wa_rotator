@@ -25,6 +25,32 @@ async function main() {
   await prisma.campaignCS.deleteMany({});
   await prisma.campaign.deleteMany({});
   await prisma.cSAdmin.deleteMany({});
+  await prisma.greetingRule.deleteMany({});
+  await prisma.sourceCategory.deleteMany({});
+
+  // 1b. Seed Source Categories (Sosmed & Sumber Trafik)
+  await prisma.sourceCategory.createMany({
+    data: [
+      { name: 'TikTok', code: 'tiktok', greeting_keyword: 'hola', icon_type: 'tiktok', badge_color: 'rose', description: 'Link Bio TikTok & Iklan TikTok Ads', sort_order: 1, is_active: true },
+      { name: 'Instagram', code: 'instagram', greeting_keyword: 'halo', icon_type: 'instagram', badge_color: 'purple', description: 'Link Bio Instagram & IG Story', sort_order: 2, is_active: true },
+      { name: 'Website', code: 'website', greeting_keyword: 'hai', icon_type: 'website', badge_color: 'emerald', description: 'Tombol WhatsApp di Website & Landing Page', sort_order: 3, is_active: true },
+      { name: 'Facebook', code: 'facebook', greeting_keyword: 'halo', icon_type: 'facebook', badge_color: 'blue', description: 'Meta Ads & Fanpage Facebook', sort_order: 4, is_active: true },
+      { name: 'Google', code: 'google', greeting_keyword: 'halo', icon_type: 'google', badge_color: 'amber', description: 'Google Ads & Search Traffic', sort_order: 5, is_active: true },
+      { name: 'YouTube', code: 'youtube', greeting_keyword: 'halo', icon_type: 'youtube', badge_color: 'red', description: 'Link Deskripsi & Bio YouTube', sort_order: 6, is_active: true },
+      { name: 'Rekomendasi', code: 'rekomendasi', greeting_keyword: 'halo', icon_type: 'users', badge_color: 'teal', description: 'Referral Word of Mouth & Relasi', sort_order: 7, is_active: true },
+      { name: 'Otomatis', code: 'auto', greeting_keyword: 'hai', icon_type: 'auto', badge_color: 'slate', description: 'Deteksi Otomatis Referrer & Parameter UTM', sort_order: 8, is_active: true }
+    ]
+  });
+
+  // 1c. Seed Greeting Rules
+  await prisma.greetingRule.createMany({
+    data: [
+      { keyword: 'hai', source: 'website' },
+      { keyword: 'halo', source: 'instagram' },
+      { keyword: 'hola', source: 'tiktok' }
+    ]
+  });
+  console.log('Seeded Source Categories & Greeting Rules successfully!');
 
   // 2. Create CS Admins
   const csPutri = await prisma.cSAdmin.create({
@@ -98,7 +124,8 @@ async function main() {
       slug: 'kawah-ijen',
       description: 'Iklan Meta & TikTok khusus promo paket trip Blue Fire Kawah Ijen',
       rotation_mode: 'SMOOTH_WEIGHTED',
-      message_template: 'Halo {nama_cs}, saya mau tanya info & booking promo Paket Midnight Kawah Ijen dari {channel}!',
+      target_channel: 'TIKTOK',
+      message_template: '{greeting} {nama_cs}, saya mau tanya info & booking promo Paket Midnight Kawah Ijen dari {channel}!',
       fallback_number: '6281234567890',
       redirect_mode: 'INTERSTITIAL',
       pixel_fb_id: '123456789012345',
@@ -122,7 +149,8 @@ async function main() {
       slug: 'baluran-safari',
       description: 'Campaign TikTok Ads untuk promo Taman Nasional Baluran & Pantai Bama',
       rotation_mode: 'SMOOTH_WEIGHTED',
-      message_template: 'Halo {nama_cs}, saya tertarik dengan promo Trip Baluran Savana dari {channel}!',
+      target_channel: 'TIKTOK',
+      message_template: '{greeting} {nama_cs}, saya tertarik dengan promo Trip Baluran Savana dari {channel}!',
       fallback_number: '6281234567891',
       redirect_mode: 'INTERSTITIAL',
       pixel_tiktok_id: 'C9876543210ABCDEF',
@@ -142,7 +170,8 @@ async function main() {
       slug: 'ig-bio',
       description: 'Rotator umum untuk traffic organik dari profil Instagram',
       rotation_mode: 'SMOOTH_WEIGHTED',
-      message_template: 'Halo {nama_cs}, {greeting}! Saya dari Instagram @tripbanyuwangi mau konsultasi liburan ke Banyuwangi.',
+      target_channel: 'INSTAGRAM',
+      message_template: '{greeting} {nama_cs}, saya dari Instagram @tripbanyuwangi mau konsultasi liburan ke Banyuwangi.',
       fallback_number: '6281234567890',
       redirect_mode: 'DIRECT_302',
       is_active: true,

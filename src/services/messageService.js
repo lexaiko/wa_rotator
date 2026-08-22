@@ -1,3 +1,5 @@
+import GreetingService from './greetingService.js';
+
 export class MessageService {
   /**
    * Normalize Indonesian WhatsApp Number to international format: 628xxx
@@ -36,24 +38,32 @@ export class MessageService {
 
   /**
    * Dynamic placeholder replacement:
-   * {nama_cs}, {cs_name}, {greeting}, {kota}, {city}, {channel}, {campaign}, {slug}, {source}
+   * {greeting} / {sapaan} / {crm_greeting} => Mapped to CRM Referral Source (Hola for TikTok, Hi for Web, Halo for IG, Hei for FB)
+   * {waktu_sapaan} / {time_greeting} => Selamat Pagi/Siang/Sore/Malam
+   * {nama_cs}, {cs_name}, {kota}, {city}, {channel}, {campaign}, {slug}, {source}, {crm_keyword}
    */
   static formatMessage(template, params = {}) {
     if (!template) return '';
 
+    const channelSource = params.channel || params.source || 'Website';
+    const greetingKeyword = params.greetingKeyword || GreetingService.getGreetingKeywordForSourceSync(channelSource);
     const timeGreeting = this.getTimeGreeting();
+
     const replacements = {
       '{nama_cs}': params.csName || 'Admin',
       '{cs_name}': params.csName || 'Admin',
-      '{greeting}': `Selamat ${timeGreeting}`,
-      '{sapaan}': `Selamat ${timeGreeting}`,
+      '{greeting}': greetingKeyword,
+      '{sapaan}': greetingKeyword,
+      '{crm_greeting}': greetingKeyword,
+      '{waktu_sapaan}': `Selamat ${timeGreeting}`,
+      '{time_greeting}': `Selamat ${timeGreeting}`,
       '{kota}': params.city || 'Indonesia',
       '{city}': params.city || 'Indonesia',
-      '{channel}': params.channel || 'Website',
-      '{source}': params.channel || 'Website',
+      '{channel}': channelSource,
+      '{source}': channelSource,
       '{campaign}': params.campaignTitle || 'Trip Banyuwangi',
       '{slug}': params.slug || '',
-      '{crm_keyword}': params.channel ? `[Ref: ${params.channel}]` : '[Ref: Web]'
+      '{crm_keyword}': channelSource ? `[Ref: ${channelSource}]` : '[Ref: Web]'
     };
 
     let result = template;

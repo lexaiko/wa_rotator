@@ -6,12 +6,12 @@ import CampaignsView from './views/CampaignsView.jsx';
 import CSManagementView from './views/CSManagementView.jsx';
 import AnalyticsView from './views/AnalyticsView.jsx';
 import BackupRestoreView from './views/BackupRestoreView.jsx';
-import SimulatorView from './views/SimulatorView.jsx';
+import SourceGreetingView from './views/SourceGreetingView.jsx';
 import SettingsView from './views/SettingsView.jsx';
 import LoginView from './views/LoginView.jsx';
 
 export default function App() {
-  const VALID_TABS = ['dashboard', 'campaigns', 'cs', 'analytics', 'backup', 'simulator', 'settings'];
+  const VALID_TABS = ['dashboard', 'campaigns', 'cs', 'source-greeting', 'analytics', 'backup', 'settings'];
 
   // Auth State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -157,6 +157,11 @@ export default function App() {
           title: 'Tim CS, Pembobotan & Jam Kerja',
           subtitle: 'Atur rasio bobot pembagian klik, limit harian, dan shift kerja otomatis'
         };
+      case 'source-greeting':
+        return {
+          title: 'Kategori Sumber & Kata Sapaan WhatsApp',
+          subtitle: 'Kelola daftar platform sosmed/iklan dan atur kata sapaan pembuka WhatsApp secara otomatis'
+        };
       case 'analytics':
         return {
           title: 'Analitik & Log Klik Detail',
@@ -166,11 +171,6 @@ export default function App() {
         return {
           title: 'Backup & Pemulihan Data',
           subtitle: 'Ekspor snapshot data dan impor restore database untuk proteksi data'
-        };
-      case 'simulator':
-        return {
-          title: 'Live Link Rotator Simulator',
-          subtitle: 'Uji coba pembobotan dan distribusi rotasi sebelum kampanye diluncurkan'
         };
       case 'settings':
         return {
@@ -255,6 +255,10 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'source-greeting' && (
+            <SourceGreetingView />
+          )}
+
           {currentTab === 'analytics' && (
             <AnalyticsView
               campaigns={campaigns}
@@ -265,12 +269,6 @@ export default function App() {
           {currentTab === 'backup' && (
             <BackupRestoreView
               onRefreshGlobalData={() => fetchGlobalData()}
-            />
-          )}
-
-          {currentTab === 'simulator' && (
-            <SimulatorView
-              campaigns={campaigns}
             />
           )}
 
