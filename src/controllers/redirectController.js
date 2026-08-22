@@ -45,20 +45,20 @@ export class RedirectController {
     try {
       let campaign = await cacheService.getCampaign(slug);
 
-      // Dynamic Suffix Decomposition for /slug-campaign-slugsource based on database categories & aliases
+      // Dynamic Suffix Decomposition 100% derived from database SourceCategory records
       const allCategories = await GreetingService.getSourceCategories();
       if (!campaign && slug && slug.includes('-')) {
         for (const cat of allCategories) {
-          const code = cat.code.toLowerCase();
-          const candidateSuffixes = [code];
-          if (code === 'instagram') candidateSuffixes.push('ig');
-          if (code === 'tiktok') candidateSuffixes.push('tt');
-          if (code === 'website') candidateSuffixes.push('web', 'direct');
-          if (code === 'facebook') candidateSuffixes.push('fb');
-          if (code === 'youtube') candidateSuffixes.push('yt');
+          const codeSuffix = (cat.code || '').toLowerCase().trim();
+          const nameSuffix = (cat.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          const candidateSuffixes = [codeSuffix];
+          if (nameSuffix && nameSuffix !== codeSuffix) {
+            candidateSuffixes.push(nameSuffix);
+          }
 
           for (const suffix of candidateSuffixes) {
-            if (slug.endsWith(`-${suffix}`)) {
+            if (suffix && slug.endsWith(`-${suffix}`)) {
               const candidateSlug = slug.slice(0, -(suffix.length + 1));
               const candidateCampaign = await cacheService.getCampaign(candidateSlug);
               if (candidateCampaign) {
@@ -86,8 +86,8 @@ export class RedirectController {
       const ua = UserAgentService.parse(userAgent);
       const detectedChannel = UserAgentService.detectChannel(req);
 
-      // Prioritas Channel Dinamis:
-      // 1. Suffix Slug (cth: /bio-ig atau /bio-instagram ➔ Sapaan Halo, Channel Instagram)
+      // Prioritas Channel Dinamis (100% dari Database):
+      // 1. Suffix Slug (cth: /bio-ig atau /bio-instagram)
       // 2. Explicit Route Param :source (cth: /tiktok/kawah-ijen)
       // 3. Query Param utm_source (cth: ?utm_source=tiktok)
       // 4. Campaign Target Channel (jika diset khusus di kampanye selain AUTO)
@@ -99,16 +99,12 @@ export class RedirectController {
         channel = suffixSource.name;
         greetingKeyword = suffixSource.greeting_keyword;
       } else if (req.params.source || req.query.utm_source || req.query.source) {
-        const rawSource = (req.params.source || req.query.utm_source || req.query.source).toLowerCase();
+        const rawSource = (req.params.source || req.query.utm_source || req.query.source).toLowerCase().trim();
         const matchedCat = allCategories.find(c => {
-          const code = c.code.toLowerCase();
-          if (code === rawSource) return true;
-          if (code === 'instagram' && rawSource === 'ig') return true;
-          if (code === 'tiktok' && rawSource === 'tt') return true;
-          if (code === 'website' && (rawSource === 'web' || rawSource === 'direct')) return true;
-          if (code === 'facebook' && rawSource === 'fb') return true;
-          if (code === 'youtube' && rawSource === 'yt') return true;
-          return false;
+          const code = (c.code || '').toLowerCase().trim();
+          const name = (c.name || '').toLowerCase().trim();
+          const cleanName = name.replace(/[^a-z0-9]/g, '');
+          return code === rawSource || name === rawSource || cleanName === rawSource;
         });
         if (matchedCat) {
           channel = matchedCat.name;
@@ -117,10 +113,11 @@ export class RedirectController {
           channel = rawSource.charAt(0).toUpperCase() + rawSource.slice(1);
         }
       } else if (campaign.target_channel && campaign.target_channel.toUpperCase() !== 'AUTO') {
+        const target = campaign.target_channel.toUpperCase().trim();
         const matchedCat = allCategories.find(c => {
-          const code = c.code.toUpperCase();
-          const target = campaign.target_channel.toUpperCase();
-          return code === target || (code === 'INSTAGRAM' && target === 'IG') || (code === 'TIKTOK' && target === 'TT');
+          const code = (c.code || '').toUpperCase().trim();
+          const name = (c.name || '').toUpperCase().trim();
+          return code === target || name === target;
         });
         if (matchedCat) {
           channel = matchedCat.name;
