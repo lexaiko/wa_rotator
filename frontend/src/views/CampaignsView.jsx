@@ -540,7 +540,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {groupCampaigns.map((camp) => {
-                      const effectiveSlug = generateSlugWithChannel(camp.slug, camp.target_channel);
+                      const effectiveSlug = camp.slug;
                       const catObj = categories.find(c => c.code.toUpperCase() === (camp.target_channel || '').toUpperCase());
                       const platformMeta = getPlatformMeta(camp.target_channel || 'auto', catObj);
                       const PlatformIcon = platformMeta.Icon;
@@ -878,12 +878,9 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
                             key={item.id}
                             type="button"
                             onClick={() => {
-                              const newTarget = item.id;
-                              const updatedSlug = generateSlugWithChannel(formData.slug || formData.title, newTarget);
                               setFormData({
                                 ...formData,
-                                target_channel: newTarget,
-                                slug: updatedSlug || formData.slug
+                                target_channel: item.id
                               });
                             }}
                             className={`p-2.5 rounded-xl text-center border transition-all cursor-pointer ${
