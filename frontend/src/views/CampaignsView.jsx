@@ -173,15 +173,48 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
       }))
     : SOURCE_GROUPS;
 
-  const getNormalizedSource = (target_channel) => {
-    const tc = (target_channel || 'AUTO').toUpperCase();
-    const found = categories.find(c => c.code.toUpperCase() === tc);
-    if (found) return found.code.toUpperCase();
-    if (tc === 'TT' || tc === 'TIKTOK') return 'TIKTOK';
-    if (tc === 'IG' || tc === 'INSTAGRAM') return 'INSTAGRAM';
-    if (tc === 'WEB' || tc === 'WEBSITE' || tc === 'DIRECT') return 'WEBSITE';
-    if (tc === 'FB' || tc === 'FACEBOOK') return 'FACEBOOK';
-    return 'AUTO';
+  const isCampaignInGroup = (campTargetChannel, group) => {
+    const target = (campTargetChannel || 'AUTO').trim().toUpperCase();
+    const groupId = (group.id || '').trim().toUpperCase();
+    const groupCode = (group.code || '').trim().toUpperCase();
+    const groupLabel = (group.label || '').trim().toUpperCase();
+
+    // Exact matches
+    if (target === groupId || target === groupCode || target === groupLabel) return true;
+
+    // Auto / General matching
+    if ((target === 'AUTO' || !target) && (groupId === 'AUTO' || groupCode === 'AUTO' || groupLabel === 'OTOMATIS')) return true;
+
+    // Standard platform aliases
+    const isTargetInstagram = target === 'IG' || target === 'INSTAGRAM';
+    const isGroupInstagram = groupId === 'IG' || groupId === 'INSTAGRAM' || groupCode === 'IG' || groupCode === 'INSTAGRAM' || groupLabel === 'INSTAGRAM';
+    if (isTargetInstagram && isGroupInstagram) return true;
+
+    const isTargetTikTok = target === 'TT' || target === 'TIKTOK';
+    const isGroupTikTok = groupId === 'TT' || groupId === 'TIKTOK' || groupCode === 'TT' || groupCode === 'TIKTOK' || groupLabel === 'TIKTOK';
+    if (isTargetTikTok && isGroupTikTok) return true;
+
+    const isTargetWeb = target === 'WEB' || target === 'WEBSITE' || target === 'DIRECT';
+    const isGroupWeb = groupId === 'WEB' || groupId === 'WEBSITE' || groupCode === 'WEB' || groupCode === 'WEBSITE' || groupLabel === 'WEBSITE';
+    if (isTargetWeb && isGroupWeb) return true;
+
+    const isTargetFB = target === 'FB' || target === 'FACEBOOK';
+    const isGroupFB = groupId === 'FB' || groupId === 'FACEBOOK' || groupCode === 'FB' || groupCode === 'FACEBOOK' || groupLabel === 'FACEBOOK';
+    if (isTargetFB && isGroupFB) return true;
+
+    const isTargetYT = target === 'YT' || target === 'YOUTUBE';
+    const isGroupYT = groupId === 'YT' || groupId === 'YOUTUBE' || groupCode === 'YT' || groupCode === 'YOUTUBE' || groupLabel === 'YOUTUBE';
+    if (isTargetYT && isGroupYT) return true;
+
+    // Match against any category records
+    const matchedCategory = categories.find(c => c.code.toUpperCase() === target || c.name.toUpperCase() === target);
+    if (matchedCategory) {
+      if (matchedCategory.code.toUpperCase() === groupCode || matchedCategory.name.toUpperCase() === groupLabel) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const generateSlugWithChannel = (rawText, channelCode) => {
@@ -488,7 +521,7 @@ export default function CampaignsView({ campaigns: propCampaigns = [], csList, o
           ).map((group) => {
             const Icon = group.Icon;
             const groupCampaigns = campaigns.filter(c => {
-              const matchSource = getNormalizedSource(c.target_channel) === group.id;
+              const matchSource = isCampaignInGroup(c.target_channel, group);
               if (!matchSource) return false;
               if (!searchQuery.trim()) return true;
               const q = searchQuery.toLowerCase();
