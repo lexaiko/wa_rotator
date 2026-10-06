@@ -193,13 +193,10 @@ export class RedirectController {
             console.error('Async clickLog logging error:', logErr.message);
           }
 
-          // Increment counter lead CS hari ini jika bukan sticky hit
+          // Increment counter lead CS hari ini jika bukan sticky hit (Atomic SQL increment to prevent MariaDB concurrency collision)
           if (csId && !rotationResult.isSticky) {
             try {
-              await prisma.cSAdmin.update({
-                where: { id: csId },
-                data: { today_lead_count: { increment: 1 } }
-              });
+              await prisma.$executeRaw`UPDATE CSAdmin SET today_lead_count = today_lead_count + 1, updated_at = NOW() WHERE id = ${csId}`;
             } catch (csErr) {
               console.error('Async CS counter update error:', csErr.message);
             }
