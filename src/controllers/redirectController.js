@@ -81,7 +81,7 @@ export class RedirectController {
 
       // 1. Deteksi Info Pengunjung (IP, Geo, Device, Channel Sosmed)
       const ip = GeoService.getClientIp(req);
-      const geo = GeoService.lookup(ip);
+      const geo = GeoService.lookup(ip, req);
       const userAgent = req.headers['user-agent'] || '';
       const ua = UserAgentService.parse(userAgent);
       const detectedChannel = UserAgentService.detectChannel(req);
@@ -172,35 +172,45 @@ export class RedirectController {
               data: {
                 campaign_id: campaign.id,
                 cs_id: csId,
-                ip_address: ip,
-                user_agent: userAgent,
-                device_type: ua.deviceType,
-                os: ua.os,
-                browser: ua.browser,
-                country: geo.country,
-                province: geo.province,
-                city: geo.city,
-                referrer: req.headers['referer'] || null,
-                utm_source: req.query.utm_source || channel,
-                utm_medium: req.query.utm_medium || null,
-                utm_campaign: req.query.utm_campaign || null,
-                utm_content: req.query.utm_content || null,
-                utm_term: req.query.utm_term || null,
-                redirect_url: waUrl
+                ip_address: (ip || '').slice(0, 45),
+                user_agent: (userAgent || '').slice(0, 1000),
+                device_type: (ua.deviceType || 'mobile').slice(0, 50),
+                os: (ua.os || '').slice(0, 50),
+                browser: (ua.browser || '').slice(0, 50),
+                country: (geo.country || 'Indonesia').slice(0, 100),
+                province: (geo.province || '').slice(0, 100),
+                city: (geo.city || '').slice(0, 100),
+                referrer: (req.headers['referer'] || '').slice(0, 1000) || null,
+                utm_source: (req.query.utm_source || channel || '').slice(0, 191) || null,
+                utm_medium: (req.query.utm_medium || '').slice(0, 191) || null,
+                utm_campaign: (req.query.utm_campaign || '').slice(0, 500) || null,
+                utm_content: (req.query.utm_content || '').slice(0, 500) || null,
+                utm_term: (req.query.utm_term || '').slice(0, 500) || null,
+                redirect_url: (waUrl || '').slice(0, 1000)
               }
             });
+          } catch (logErr) {
+            console.error('Async clickLog logging error:', logErr.message);
+          }
 
-            // Increment counter lead CS hari ini jika bukan sticky hit
-            if (csId && !rotationResult.isSticky) {
+          // Increment counter lead CS hari ini jika bukan sticky hit
+          if (csId && !rotationResult.isSticky) {
+            try {
               await prisma.cSAdmin.update({
                 where: { id: csId },
                 data: { today_lead_count: { increment: 1 } }
               });
+            } catch (csErr) {
+              console.error('Async CS counter update error:', csErr.message);
             }
-          } catch (logErr) {
-            console.error('Async logging error:', logErr.message);
           }
         })();
+      } else {
+        if (isBot) {
+          console.log(`[ROTATOR] Bot/Crawler ignored: ${userAgent.slice(0, 80)}`);
+        } else if (rateLimitStatus.isSpam) {
+          console.warn(`[ROTATOR] Rate limit triggered for IP ${ip} (clicks: ${rateLimitStatus.clickCount})`);
+        }
       }
 
       // 6. Opsi Mode 1: Direct 302 Instan (Default & Tercepat)

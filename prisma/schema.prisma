@@ -11,9 +11,9 @@ model Campaign {
   id               Int          @id @default(autoincrement())
   slug             String       @unique
   title            String
-  description      String?
+  description      String?      @db.Text
   rotation_mode    String       @default("SMOOTH_WEIGHTED") // SMOOTH_WEIGHTED, RANDOM_WEIGHTED, ROUND_ROBIN, GEO_TARGET
-  message_template String       @default("Halo {nama_cs}, saya tertarik dengan paket wisata Trip Banyuwangi dari {channel}!")
+  message_template String       @default("Halo {nama_cs}, saya tertarik dengan paket wisata Trip Banyuwangi dari {channel}!") @db.Text
   fallback_number  String?      @default("6281234567890")
   redirect_mode    String       @default("INTERSTITIAL") // DIRECT_302, INTERSTITIAL
   target_channel   String?      @default("AUTO") // AUTO, TIKTOK, INSTAGRAM, WEBSITE, FACEBOOK
@@ -58,7 +58,7 @@ model CampaignCS {
   cs_id          Int
   weight         Int        @default(10) // 1-100
   is_active      Boolean    @default(true)
-  custom_message String?
+  custom_message String?    @db.Text
   created_at     DateTime   @default(now())
   updated_at     DateTime   @updatedAt
 
@@ -73,20 +73,20 @@ model ClickLog {
   campaign_id  Int
   cs_id        Int?
   ip_address   String?
-  user_agent   String?
+  user_agent   String?   @db.Text
   device_type  String?   @default("mobile") // mobile, desktop, tablet
   os           String?
   browser      String?
   country      String?   @default("Indonesia")
   province     String?
   city         String?
-  referrer     String?
+  referrer     String?   @db.Text
   utm_source   String?   // tiktok, instagram, facebook, google, etc.
   utm_medium   String?   // cpc, bio, story, ads
-  utm_campaign String?
-  utm_content  String?
-  utm_term     String?
-  redirect_url String?
+  utm_campaign String?   @db.Text
+  utm_content  String?   @db.Text
+  utm_term     String?   @db.Text
+  redirect_url String?   @db.Text
   created_at   DateTime  @default(now())
 
   campaign     Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)

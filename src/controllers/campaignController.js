@@ -134,7 +134,7 @@ export class CampaignController {
         }
       });
 
-      cacheService.invalidate(campaign.slug);
+      cacheService.invalidate(campaign.slug, campaign.id);
       return res.json({ success: true, data: campaign });
     } catch (err) {
       console.error('Create campaign error:', err);
@@ -213,8 +213,8 @@ export class CampaignController {
         });
       }
 
-      cacheService.invalidate(oldCampaign.slug);
-      cacheService.invalidate(cleanSlug);
+      cacheService.invalidate(oldCampaign.slug, id);
+      cacheService.invalidate(cleanSlug, id);
 
       return res.json({ success: true, data: updated });
     } catch (err) {
@@ -237,7 +237,7 @@ export class CampaignController {
         data: { is_active: !campaign.is_active }
       });
 
-      cacheService.invalidate(campaign.slug);
+      cacheService.invalidate(campaign.slug, id);
       return res.json({ success: true, data: updated });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
@@ -254,7 +254,7 @@ export class CampaignController {
       }
 
       await prisma.campaign.delete({ where: { id } });
-      cacheService.invalidate(campaign.slug);
+      cacheService.invalidate(campaign.slug, id);
 
       return res.json({ success: true, message: 'Campaign berhasil dihapus' });
     } catch (err) {

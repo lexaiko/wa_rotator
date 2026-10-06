@@ -61,12 +61,34 @@ class CacheService {
     return payload;
   }
 
-  invalidate(slug = null) {
+  invalidate(slug = null, campaignId = null) {
     if (slug) {
       this.campaignCache.delete(slug);
     } else {
       this.campaignCache.clear();
+    }
+
+    if (campaignId) {
+      this.smoothWeightedState.delete(campaignId);
+      this.roundRobinState.delete(campaignId);
+      for (const key of this.stickySessions.keys()) {
+        if (key.startsWith(`${campaignId}_`)) {
+          this.stickySessions.delete(key);
+        }
+      }
+    } else if (!slug) {
       this.smoothWeightedState.clear();
+      this.roundRobinState.clear();
+      this.stickySessions.clear();
+    }
+  }
+
+  clearStickyForCampaign(campaignId) {
+    if (!campaignId) return;
+    for (const key of this.stickySessions.keys()) {
+      if (key.startsWith(`${campaignId}_`)) {
+        this.stickySessions.delete(key);
+      }
     }
   }
 

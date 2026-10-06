@@ -13,6 +13,7 @@ export class RotatorEngine {
       timeZone: 'Asia/Jakarta',
       hour: '2-digit',
       minute: '2-digit',
+      hourCycle: 'h23',
       hour12: false
     });
     const currentTimeStr = wibFormatter.format(now); // "HH:mm"
@@ -133,19 +134,8 @@ export class RotatorEngine {
    */
   static selectCS(campaign, visitorInfo = {}) {
     const assignments = campaign.cs_assignments || [];
-    
-    // Check Sticky Session first if enabled
-    if (campaign.sticky_session && visitorInfo.ip) {
-      const stickyCSId = cacheService.getStickyCS(campaign.id, visitorInfo.ip);
-      if (stickyCSId) {
-        const found = assignments.find(a => a.cs_id === stickyCSId && a.is_active && a.cs.is_active);
-        if (found) {
-          return { selected: found, isSticky: true, isFallback: false };
-        }
-      }
-    }
 
-    // Filter active and eligible CS
+    // Filter active and eligible CS (Working Hours, Active Status, Daily Lead Cap)
     const eligible = this.filterEligibleCS(assignments, visitorInfo.city);
 
     // If no CS eligible, return Fallback Number
@@ -156,6 +146,17 @@ export class RotatorEngine {
         isFallback: true,
         fallbackNumber: campaign.fallback_number || '6281234567890'
       };
+    }
+
+    // Check Sticky Session first if enabled and the CS is currently eligible
+    if (campaign.sticky_session && visitorInfo.ip) {
+      const stickyCSId = cacheService.getStickyCS(campaign.id, visitorInfo.ip);
+      if (stickyCSId) {
+        const found = eligible.find(a => a.cs_id === stickyCSId);
+        if (found) {
+          return { selected: found, isSticky: true, isFallback: false };
+        }
+      }
     }
 
     let selected = null;
