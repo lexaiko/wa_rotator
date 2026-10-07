@@ -181,7 +181,7 @@ export class RedirectController {
                 province: (geo.province || '').slice(0, 100),
                 city: (geo.city || '').slice(0, 100),
                 referrer: (req.headers['referer'] || '').slice(0, 1000) || null,
-                utm_source: (req.query.utm_source || channel || '').slice(0, 191) || null,
+                utm_source: (channel || req.query.utm_source || '').slice(0, 191) || null,
                 utm_medium: (req.query.utm_medium || '').slice(0, 191) || null,
                 utm_campaign: (req.query.utm_campaign || '').slice(0, 500) || null,
                 utm_content: (req.query.utm_content || '').slice(0, 500) || null,

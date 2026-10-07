@@ -293,14 +293,31 @@ export class AnalyticsController {
         by: ['utm_source'],
         _count: { id: true },
         where,
-        orderBy: { _count: { id: 'desc' } },
-        take: 10
+        orderBy: { _count: { id: 'desc' } }
       });
 
-      const data = logs.map(item => ({
-        channel: item.utm_source ? item.utm_source.toUpperCase() : 'Direct / Bio',
-        clicks: item._count.id
-      }));
+      const normalizeChannel = (raw) => {
+        if (!raw) return 'Direct / Bio';
+        const lower = raw.toLowerCase().trim();
+        if (lower === 'ig' || lower === 'instagram') return 'Instagram';
+        if (lower === 'tt' || lower === 'tiktok') return 'TikTok';
+        if (lower === 'web' || lower === 'website') return 'Website';
+        if (lower === 'fb' || lower === 'facebook' || lower === 'meta') return 'Facebook';
+        if (lower === 'google' || lower === 'ads') return 'Google Ads';
+        return raw.charAt(0).toUpperCase() + raw.slice(1);
+      };
+
+      const aggregated = new Map();
+      for (const item of logs) {
+        const canonical = normalizeChannel(item.utm_source);
+        const count = item._count.id;
+        aggregated.set(canonical, (aggregated.get(canonical) || 0) + count);
+      }
+
+      const data = Array.from(aggregated.entries())
+        .map(([channel, clicks]) => ({ channel, clicks }))
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 10);
 
       return res.json({ success: true, data });
     } catch (err) {
@@ -488,7 +505,7 @@ export class AnalyticsController {
         const slug = l.campaign?.slug || '';
         const csName = `"${(l.cs?.name || 'Fallback Darurat').replace(/"/g, '""')}"`;
         const csPhone = l.cs?.phone_number || '';
-        const source = l.utm_source || 'Direct';
+        const source = l.utm_source ? (l.utm_source.toLowerCase() === 'ig' ? 'Instagram' : l.utm_source) : 'Direct';
         const city = `"${(l.city || '-').replace(/"/g, '""')}"`;
         const province = `"${(l.province || '-').replace(/"/g, '""')}"`;
         const ip = l.ip_address || '-';
